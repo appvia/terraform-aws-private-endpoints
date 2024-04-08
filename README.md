@@ -11,6 +11,17 @@
 
 The following module provides a AWS recommended pattern for sharing private endpoint services across multiple VPCs, interconnected via a transit gateway. The intent is to retain as much of the traffic directed to AWS services, private and off the internet. Used in combination with the [terraform-aws-connectivity](https://github.com/appvia/terraform-aws-connectivity).
 
+## How it works
+
+- A shared vpc called `var.name` is created and attached to the transit gateway. Note, this module does not perform any actions on the transit gateway, it is assumed the correct settings to enable connectivity between the `var.name` vpc and the spokes is in place.
+- Inside the shared vpc the private endpoints are created, one for each service defined in `var.endpoints`. The default security groups permits all https traffic from `10.0.0.0/8` to ingress.
+- Optionally, depending on the configuration of the module, a outbound and inbound resolver is created. The inbound resolver is used to resolve the private endpoints, the outbound resolver is used to resolve the AWS services.
+- Route53 resolver rules are created for each of the shared private endpoints, allowing the consumer to pick and choose which endpoints they want to resolve to the shared vpc.
+- The endpoints are shared using AWS RAM to the all the principals defined in the `var.sharing.principals` list e.g. a collection oof organizational units.
+- The spoke vpc's are responsible for associating the resolver rules with their vpc.
+- These rules intercept the DNS queries and route them to the shared vpc resolvers, returning the private endpoint ip address located within them.
+- Traffic from the spoke to the endpoints once resolved, is routed via the transit gateway.
+
 ## AWS References
 
 - [AWS PrivateLink](https://docs.aws.amazon.com/privatelink/latest/userguide/what-is-privatelink.html)
@@ -19,11 +30,65 @@ The following module provides a AWS recommended pattern for sharing private endp
 ## Usage
 
 ```hcl
-module "example" {
-  source  = "appvia/<NAME>/aws"
-  version = "0.0.1"
+## Provision the endpoints and resolvers
+module "endpoints" {
+  source = "../.."
 
-  # insert variables here
+  name = "endpoints"
+  tags = var.tags
+  endpoints = {
+    "s3" = {
+      service = "s3"
+    },
+    "ec2" = {
+      service = "ec2"
+    },
+    "ec2messages" = {
+      service = "ec2messages"
+    },
+    "ssm" = {
+      service = "ssm"
+    },
+    "ssmmessages" = {
+      service = "ssmmessages"
+    },
+    "logs" = {
+      service = "logs"
+    },
+    "kms" = {
+      service = "kms"
+    },
+    "secretsmanager" = {
+      service = "secretsmanager"
+    }
+  }
+
+  sharing = {
+    principals = values(var.ram_principals)
+  }
+
+  resolvers = {
+    inbound = {
+      create            = true
+      ip_address_offset = 10
+    }
+    outbound = {
+      create            = true
+      ip_address_offset = 12
+    }
+  }
+
+  network = {
+    create = true
+    # Name of the network to create
+    name = "endpoints"
+    # Number of availability zones to create subnets in
+    private_netmask = 24
+    # The transit gateway to connect
+    transit_gateway_id = var.transit_gateway_id
+    # The cider range to use for the VPC
+    vpc_cidr = "10.20.0.0/21"
+  }
 }
 ```
 
@@ -36,57 +101,59 @@ The `terraform-docs` utility is used to generate this README. Follow the below s
 3. Run `terraform-docs markdown table --output-file ${PWD}/README.md --output-mode inject .`
 
 <!-- BEGIN_TF_DOCS -->
+
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0.7 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0.0 |
+| Name                                                                     | Version  |
+| ------------------------------------------------------------------------ | -------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.0.7 |
+| <a name="requirement_aws"></a> [aws](#requirement_aws)                   | >= 5.0.0 |
 
 ## Providers
 
-| Name | Version |
-|------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0.0 |
+| Name                                             | Version  |
+| ------------------------------------------------ | -------- |
+| <a name="provider_aws"></a> [aws](#provider_aws) | >= 5.0.0 |
 
 ## Modules
 
-| Name | Source | Version |
-|------|--------|---------|
-| <a name="module_endpoints"></a> [endpoints](#module\_endpoints) | terraform-aws-modules/vpc/aws//modules/vpc-endpoints | 5.7.0 |
-| <a name="module_vpc"></a> [vpc](#module\_vpc) | appvia/network/aws | 0.1.3 |
+| Name                                                           | Source                                               | Version |
+| -------------------------------------------------------------- | ---------------------------------------------------- | ------- |
+| <a name="module_endpoints"></a> [endpoints](#module_endpoints) | terraform-aws-modules/vpc/aws//modules/vpc-endpoints | 5.7.0   |
+| <a name="module_vpc"></a> [vpc](#module_vpc)                   | appvia/network/aws                                   | 0.1.3   |
 
 ## Resources
 
-| Name | Type |
-|------|------|
-| [aws_route53_resolver_endpoint.inbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_endpoint) | resource |
-| [aws_route53_resolver_endpoint.outbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_endpoint) | resource |
-| [aws_route53_resolver_rule.endpoints](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_rule) | resource |
-| [aws_security_group.dns](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
-| [aws_vpc_security_group_ingress_rule.allow_dns_tcp](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_ingress_rule) | resource |
-| [aws_vpc_security_group_ingress_rule.allow_dns_udp](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_ingress_rule) | resource |
-| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
-| [aws_route53_resolver_endpoint.inbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/route53_resolver_endpoint) | data source |
-| [aws_route53_resolver_endpoint.outbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/route53_resolver_endpoint) | data source |
+| Name                                                                                                                                                             | Type        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| [aws_route53_resolver_endpoint.inbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_endpoint)                   | resource    |
+| [aws_route53_resolver_endpoint.outbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_endpoint)                  | resource    |
+| [aws_route53_resolver_rule.endpoints](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_rule)                         | resource    |
+| [aws_security_group.dns](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group)                                             | resource    |
+| [aws_vpc_security_group_ingress_rule.allow_dns_tcp](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_ingress_rule) | resource    |
+| [aws_vpc_security_group_ingress_rule.allow_dns_udp](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_ingress_rule) | resource    |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region)                                                      | data source |
+| [aws_route53_resolver_endpoint.inbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/route53_resolver_endpoint)                | data source |
+| [aws_route53_resolver_endpoint.outbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/route53_resolver_endpoint)               | data source |
 
 ## Inputs
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| <a name="input_network"></a> [network](#input\_network) | The network to use for the inbound and outbound resolvers | <pre>object({<br>    # The number of availability zones to create subnets in<br>    availability_zones = optional(number, 2)<br>    # Whether to create the network<br>    create = optional(bool, false)<br>    # Whether to use ipam when creating the network<br>    enable_ipam = optional(bool, false)<br>    # The id of the ipam pool to use when creating the network<br>    ipam_pool_id = optional(string, null)<br>    # The subnet mask for private subnets, when creating the network<br>    private_netmask = optional(number, 24)<br>    # The ids of the private subnets to if we are reusing an existing network<br>    private_subnet_ids = optional(list(string), null)<br>    ## The transit gateway id to use for the network<br>    transit_gateway_id = optional(string, null)<br>    # The cider range to use for the VPC, when creating the network<br>    vpc_cidr = optional(string, null)<br>    # The vpc id to use when reusing an existing network <br>    vpc_id = optional(string, null)<br>  })</pre> | n/a | yes |
-| <a name="input_resolvers"></a> [resolvers](#input\_resolvers) | The resolvers to provision | <pre>object({<br>    inbound = object({<br>      # Whether to create the resolver <br>      create = optional(bool, true)<br>      # If creating the inbound resolver, the address offset to use i.e if<br>      ip_address_offset = optional(number, 11)<br>      # The protocols to use for the resolver<br>      protocols = optional(list(string), ["Do53", "DoH"])<br>      # When not creating the resolver, this is the name of the resolver to use<br>      use_existing = optional(string, null)<br>    })<br>    outbound = object({<br>      # Whether to create the resolver<br>      create = optional(bool, true)<br>      # If creating the outbound resolver, the address offset to use i.e if 10.100.0.0/24, offset 10, ip address would be 10.100.0.10<br>      ip_address_offset = optional(number, 10)<br>      # The protocols to use for the resolver<br>      protocols = optional(list(string), ["Do53", "DoH"])<br>      # When not creating the resolver, this is the name of the resolver to use<br>      use_existing = optional(string, null)<br>    })<br>  })</pre> | n/a | yes |
-| <a name="input_tags"></a> [tags](#input\_tags) | The tags to apply to the resources | `map(string)` | n/a | yes |
-| <a name="input_endpoints"></a> [endpoints](#input\_endpoints) | The endpoints to use for the inbound and outbound resolvers | <pre>map(object({<br>    # Whether to enable private dns<br>    private_dns_enabled = optional(bool, true)<br>    # The route table ids to use for the endpoint, assuming a gateway endpoint<br>    route_table_ids = optional(list(string), null)<br>    # The security group ids to use for the endpoint, else create on the fly<br>    security_group_ids = optional(list(string), null)<br>    # The AWS service we are creating a endpoint for<br>    service = string<br>  }))</pre> | <pre>{<br>  "ec2": {<br>    "service": "ec2"<br>  },<br>  "ec2messages": {<br>    "service": "ec2messages"<br>  },<br>  "kms": {<br>    "service": "kms"<br>  },<br>  "logs": {<br>    "service": "logs"<br>  },<br>  "s3": {<br>    "service": "s3"<br>  },<br>  "secretsmanager": {<br>    "service": "secretsmanager"<br>  },<br>  "ssm": {<br>    "service": "ssm"<br>  },<br>  "ssmmessages": {<br>    "service": "ssmmessages"<br>  }<br>}</pre> | no |
-| <a name="input_name"></a> [name](#input\_name) | The name of the environment | `string` | `"endpoints"` | no |
+| Name                                                         | Description                                                 | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Default                                                                                                                                                                                                                                                                                                                                                                                                        | Required |
+| ------------------------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------: |
+| <a name="input_network"></a> [network](#input_network)       | The network to use for the inbound and outbound resolvers   | <pre>object({<br> # The number of availability zones to create subnets in<br> availability_zones = optional(number, 2)<br> # Whether to create the network<br> create = optional(bool, false)<br> # Whether to use ipam when creating the network<br> enable_ipam = optional(bool, false)<br> # The id of the ipam pool to use when creating the network<br> ipam_pool_id = optional(string, null)<br> # The subnet mask for private subnets, when creating the network<br> private_netmask = optional(number, 24)<br> # The ids of the private subnets to if we are reusing an existing network<br> private_subnet_ids = optional(list(string), null)<br> ## The transit gateway id to use for the network<br> transit_gateway_id = optional(string, null)<br> # The cider range to use for the VPC, when creating the network<br> vpc_cidr = optional(string, null)<br> # The vpc id to use when reusing an existing network <br> vpc_id = optional(string, null)<br> })</pre>                      | n/a                                                                                                                                                                                                                                                                                                                                                                                                            |   yes    |
+| <a name="input_resolvers"></a> [resolvers](#input_resolvers) | The resolvers to provision                                  | <pre>object({<br> inbound = object({<br> # Whether to create the resolver <br> create = optional(bool, true)<br> # If creating the inbound resolver, the address offset to use i.e if<br> ip_address_offset = optional(number, 11)<br> # The protocols to use for the resolver<br> protocols = optional(list(string), ["Do53", "DoH"])<br> # When not creating the resolver, this is the name of the resolver to use<br> use_existing = optional(string, null)<br> })<br> outbound = object({<br> # Whether to create the resolver<br> create = optional(bool, true)<br> # If creating the outbound resolver, the address offset to use i.e if 10.100.0.0/24, offset 10, ip address would be 10.100.0.10<br> ip_address_offset = optional(number, 10)<br> # The protocols to use for the resolver<br> protocols = optional(list(string), ["Do53", "DoH"])<br> # When not creating the resolver, this is the name of the resolver to use<br> use_existing = optional(string, null)<br> })<br> })</pre> | n/a                                                                                                                                                                                                                                                                                                                                                                                                            |   yes    |
+| <a name="input_tags"></a> [tags](#input_tags)                | The tags to apply to the resources                          | `map(string)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | n/a                                                                                                                                                                                                                                                                                                                                                                                                            |   yes    |
+| <a name="input_endpoints"></a> [endpoints](#input_endpoints) | The endpoints to use for the inbound and outbound resolvers | <pre>map(object({<br> # Whether to enable private dns<br> private_dns_enabled = optional(bool, true)<br> # The route table ids to use for the endpoint, assuming a gateway endpoint<br> route_table_ids = optional(list(string), null)<br> # The security group ids to use for the endpoint, else create on the fly<br> security_group_ids = optional(list(string), null)<br> # The AWS service we are creating a endpoint for<br> service = string<br> }))</pre>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | <pre>{<br> "ec2": {<br> "service": "ec2"<br> },<br> "ec2messages": {<br> "service": "ec2messages"<br> },<br> "kms": {<br> "service": "kms"<br> },<br> "logs": {<br> "service": "logs"<br> },<br> "s3": {<br> "service": "s3"<br> },<br> "secretsmanager": {<br> "service": "secretsmanager"<br> },<br> "ssm": {<br> "service": "ssm"<br> },<br> "ssmmessages": {<br> "service": "ssmmessages"<br> }<br>}</pre> |    no    |
+| <a name="input_name"></a> [name](#input_name)                | The name of the environment                                 | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | `"endpoints"`                                                                                                                                                                                                                                                                                                                                                                                                  |    no    |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| <a name="output_endpoints"></a> [endpoints](#output\_endpoints) | The attributes of the endpoints we created |
-| <a name="output_inbound_resolver_endpoint_id"></a> [inbound\_resolver\_endpoint\_id](#output\_inbound\_resolver\_endpoint\_id) | The id of the inbound resolver if we created one |
-| <a name="output_outbound_resolver_endpoint_id"></a> [outbound\_resolver\_endpoint\_id](#output\_outbound\_resolver\_endpoint\_id) | The id of the outbound resolver if we created one |
-| <a name="output_resolver_security_group_id"></a> [resolver\_security\_group\_id](#output\_resolver\_security\_group\_id) | The id of the security group we created for the endpoints if we created one |
-| <a name="output_vpc_id"></a> [vpc\_id](#output\_vpc\_id) | The id of the vpc we used to provision the endpoints |
+| Name                                                                                                                       | Description                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| <a name="output_endpoints"></a> [endpoints](#output_endpoints)                                                             | The attributes of the endpoints we created                                  |
+| <a name="output_inbound_resolver_endpoint_id"></a> [inbound_resolver_endpoint_id](#output_inbound_resolver_endpoint_id)    | The id of the inbound resolver if we created one                            |
+| <a name="output_outbound_resolver_endpoint_id"></a> [outbound_resolver_endpoint_id](#output_outbound_resolver_endpoint_id) | The id of the outbound resolver if we created one                           |
+| <a name="output_resolver_security_group_id"></a> [resolver_security_group_id](#output_resolver_security_group_id)          | The id of the security group we created for the endpoints if we created one |
+| <a name="output_vpc_id"></a> [vpc_id](#output_vpc_id)                                                                      | The id of the vpc we used to provision the endpoints                        |
+
 <!-- END_TF_DOCS -->

@@ -35,5 +35,19 @@ locals {
 
   ## The vpc id, which is either the one we created or the one provided
   vpc_id = local.enable_vpc_creation ? module.vpc[0].vpc_id : var.network.vpc_id
-}
 
+  ## The endpoints we are going to provision in this VPC 
+  endpoints = {
+    for x in var.endpoints : x.service => {
+      policy              = x.policy,
+      private_dns_enabled = !contains(["s3", "dynamodb"], x.service) ? true : false
+      route_table_ids     = local.enable_vpc_creation ? module.vpc[0].private_route_table_ids : x.route_table_ids
+      service             = x.service,
+      service_type        = x.service_type,
+      tags                = merge(var.tags, { "Name" : format("%s-endpoint", x.service) }),
+    }
+  }
+
+  ## A of the domains to endpoint configuration 
+  endpoints_rules = { for x in var.endpoints : format("%s.%s.amazonaws.com", x.service, local.region) => x }
+}

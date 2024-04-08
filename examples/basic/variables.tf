@@ -16,3 +16,8 @@ variable "transit_gateway_id" {
   type        = string
   default     = null
 }
+
+variable "ipam_pool_id" {
+  description = "The ID of the IPAM pool to use for the VPC"
+  type        = string
+}

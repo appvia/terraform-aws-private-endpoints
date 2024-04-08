@@ -14,11 +14,6 @@ output "outbound_resolver_endpoint_id" {
   value       = module.endpoints.outbound_resolver_endpoint_id
 }
 
-output "resolver_security_group_id" {
-  description = "The id of the security group we created for the endpoints if we created one"
-  value       = module.endpoints.resolver_security_group_id
-}
-
 output "outbound_resolver_ip_addresses" {
   description = "The ip addresses of the outbound resolver if we created one"
   value       = module.endpoints.outbound_resolver_ip_addresses

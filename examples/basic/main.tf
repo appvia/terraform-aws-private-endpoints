@@ -4,6 +4,22 @@
 # to build your own root module that invokes this module
 #####################################################################################
 
+module "spoke" {
+  source = "github.com/appvia/terraform-aws-network?ref=main"
+
+  availability_zones                    = 3
+  enable_ipam                           = true
+  enable_transit_gateway                = true
+  enable_transit_gateway_appliance_mode = true
+  enable_route53_resolver_rules         = true
+  ipam_pool_id                          = var.ipam_pool_id
+  name                                  = "spoke-dns"
+  private_subnet_netmask                = 24
+  tags                                  = var.tags
+  transit_gateway_id                    = var.transit_gateway_id
+  vpc_netmask                           = 22
+}
+
 ## Provision the endpoints and resolvers 
 module "endpoints" {
   source = "../.."

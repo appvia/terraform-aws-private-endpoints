@@ -14,14 +14,9 @@ output "outbound_resolver_endpoint_id" {
   value       = local.enable_outbound_resolver ? aws_route53_resolver_endpoint.outbound[0].id : local.outbound_resolver_id
 }
 
-output "outbound_resolver_security_group_id" {
+output "resolver_security_group_id" {
   description = "The id of the security group we created for the endpoints if we created one"
-  value       = local.enable_dns_security_group ? aws_security_group.dns_outbound[0].id : null
-}
-
-output "inbound_resolver_security_group_id" {
-  description = "The id of the security group we created for the endpoints if we created one"
-  value       = local.enable_dns_security_group ? aws_security_group.dns_inbound[0].id : null
+  value       = local.enable_dns_security_group ? module.dns_security_group[0].security_group_id : null
 }
 
 output "outbound_resolver_ip_addresses" {

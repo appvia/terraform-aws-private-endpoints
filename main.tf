@@ -1,43 +1,4 @@
 
-data "aws_region" "current" {}
-
-## Find the inbound resolver if required 
-data "aws_route53_resolver_endpoint" "inbound" {
-  count = !var.resolvers.inbound.create && var.resolvers.inbound.use_existing != "" ? 1 : 0
-
-  filter {
-    name   = "Name"
-    values = [var.resolvers.inbound.use_existing]
-  }
-}
-
-## Find the outbound resolver if required 
-data "aws_route53_resolver_endpoint" "outbound" {
-  count = !var.resolvers.outbound.create && var.resolvers.outbound.use_existing != "" ? 1 : 0
-
-  filter {
-    name   = "Name"
-    values = [var.resolvers.outbound.use_existing]
-  }
-}
-
-locals {
-  ## The endpoints we are going to provision in this VPC 
-  endpoints = {
-    for x in var.endpoints : x.service => {
-      policy              = x.policy,
-      private_dns_enabled = !contains(["s3", "dynamodb"], x.service) ? true : false
-      route_table_ids     = local.enable_vpc_creation ? module.vpc[0].private_route_table_ids : x.route_table_ids
-      service             = x.service,
-      service_type        = x.service_type,
-      tags                = merge(var.tags, { "Name" : format("%s-endpoint", x.service) }),
-    }
-  }
-
-  ## A of the domains to endpoint configuration 
-  endpoints_rules = { for x in var.endpoints : format("%s.%s.amazonaws.com", x.service, local.region) => x }
-}
-
 ## Provision the network is required 
 module "vpc" {
   count   = local.enable_vpc_creation ? 1 : 0
@@ -71,20 +32,76 @@ module "endpoints" {
 
   security_group_rules = {
     ingress_https = {
-      description = "Allow HTTPS traffic from the VPC"
+      description = "Allow all https traffic to the private endpoints"
       cidr_blocks = ["10.0.0.0/8"]
     }
     egress_all = {
-      description = "Allow all traffic to leave the VPC"
+      description = "Allow all https traffic to the private endpoints"
       cidr_blocks = ["10.0.0.0/8"]
-      from_port   = 0
+      from_port   = 443
       to_port     = 443
       type        = "egress"
     }
   }
 }
 
-## Provision the resolver rules per service 
+## Provision the security group for the dns resolvers 
+# tfsec:ignore:aws-ec2-no-public-egress-sgr
+module "dns_security_group" {
+  count   = local.enable_dns_security_group ? 1 : 0
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "5.1.2"
+
+  name                = "dns-resolvers-${var.name}"
+  description         = "Allow DNS traffic to the route53 resolvers"
+  ingress_cidr_blocks = ["10.0.0.0/8"]
+  ingress_rules       = ["dns-tcp", "dns-udp"]
+  egress_rules        = ["dns-tcp", "dns-udp"]
+  tags                = merge(var.tags, { "Name" : "dns-resolvers-${var.name}" })
+  vpc_id              = module.vpc[0].vpc_id
+}
+
+## Provision an inbound resolver if required
+resource "aws_route53_resolver_endpoint" "inbound" {
+  count = local.enable_inbound_resolver ? 1 : 0
+
+  name               = "inbound-${var.name}"
+  direction          = "INBOUND"
+  protocols          = var.resolvers.inbound.protocols
+  security_group_ids = [module.dns_security_group[0].security_group_id]
+  tags               = var.tags
+
+  dynamic "ip_address" {
+    for_each = local.inbound_resolver_addresses
+
+    content {
+      subnet_id = ip_address.key
+      ip        = ip_address.value
+    }
+  }
+}
+
+## Provision an outbound resolver if required
+resource "aws_route53_resolver_endpoint" "outbound" {
+  count = local.enable_outbound_resolver ? 1 : 0
+
+  name               = "outbound-${var.name}"
+  direction          = "OUTBOUND"
+  protocols          = var.resolvers.outbound.protocols
+  security_group_ids = [module.dns_security_group[0].security_group_id]
+  tags               = var.tags
+
+  dynamic "ip_address" {
+    for_each = local.outbound_resolver_addresses
+
+    content {
+      subnet_id = ip_address.key
+      ip        = ip_address.value
+    }
+  }
+}
+
+## Provision the resolver rules per aws service 
 resource "aws_route53_resolver_rule" "endpoints" {
   for_each = local.endpoints_rules
 
@@ -98,21 +115,16 @@ resource "aws_route53_resolver_rule" "endpoints" {
     for_each = local.inbound_resolver_ip_addresses
 
     content {
-      ip   = target_ip.value
-      port = 53
+      ip = target_ip.value
     }
   }
+
+  depends_on = [
+    module.endpoints
+  ]
 }
 
-## Associate the rule with the endpoints vpc 
-resource "aws_route53_resolver_rule_association" "association" {
-  for_each = local.endpoints_rules
-
-  resolver_rule_id = aws_route53_resolver_rule.endpoints[each.key].id
-  vpc_id           = local.vpc_id
-}
-
-## Create the RAM share 
+## Provision the AWS RAM share - so we can share the rules with other accounts
 resource "aws_ram_resource_share" "endpoints" {
   for_each = local.endpoints_rules
 
@@ -121,7 +133,7 @@ resource "aws_ram_resource_share" "endpoints" {
   tags                      = merge(var.tags, { "Name" : format("%s-%s-endpoints", var.sharing.share_prefix, each.value.service) })
 }
 
-## Associate the resource with the RAM share 
+## Associate each of the resolver rules with the resource share
 resource "aws_ram_resource_association" "endpoints" {
   for_each = local.endpoints_rules
 
@@ -129,7 +141,7 @@ resource "aws_ram_resource_association" "endpoints" {
   resource_share_arn = aws_ram_resource_share.endpoints[each.key].arn
 }
 
-## Share resource with the principals 
+## Associate the ram shares with the principals
 module "ram_share" {
   for_each = local.endpoints_rules
   source   = "./modules/ram_share"
