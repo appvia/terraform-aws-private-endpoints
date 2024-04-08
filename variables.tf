@@ -2,6 +2,9 @@
 variable "resolvers" {
   description = "The resolvers to provision"
   type = object({
+    # Indicates we create a single resolver rule, rather than one per service_type 
+    create_single_resolver_rule = optional(bool, false)
+    # The configuration for the inbound resolver
     inbound = object({
       # Whether to create the resolver 
       create = optional(bool, true)
@@ -12,6 +15,7 @@ variable "resolvers" {
       # When not creating the resolver, this is the name of the resolver to use
       use_existing = optional(string, null)
     })
+    # The configuration for the outbound resolver
     outbound = object({
       # Whether to create the resolver
       create = optional(bool, true)
