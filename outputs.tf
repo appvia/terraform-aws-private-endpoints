@@ -31,12 +31,12 @@ output "inbound_resolver_ip_addresses" {
 
 output "private_subnet_attributes_by_az" {
   description = "The attributes of the private subnets"
-  value       = local.enable_vpc_creation ? module.vpc.private_subnet_attributes_by_az : null
+  value       = local.enable_vpc_creation ? module.vpc[0].private_subnet_attributes_by_az : null
 }
 
 output "rt_attributes_by_type_by_az" {
   description = "The attributes of the route tables"
-  value       = local.enable_vpc_creation ? module.vpc.rt_attributes_by_type_by_az : null
+  value       = local.enable_vpc_creation ? module.vpc[0].rt_attributes_by_type_by_az : null
 }
 
 output "vpc_id" {
