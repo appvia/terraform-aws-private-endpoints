@@ -3,7 +3,7 @@
 resource "aws_ram_resource_share" "endpoints" {
   for_each = local.endpoints_rules
 
-  allow_external_principals = false
+  allow_external_principals = true
   name                      = format("%s-%s-endpoints", var.sharing.share_prefix, each.value.service)
   tags                      = merge(var.tags, { "Name" : format("%s-%s-endpoints", var.sharing.share_prefix, each.value.service) })
 }
