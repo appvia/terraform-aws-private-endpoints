@@ -29,6 +29,16 @@ output "inbound_resolver_ip_addresses" {
   value       = local.enable_inbound_resolver ? local.inbound_resolver_ip_addresses : null
 }
 
+output "private_subnet_attributes_by_az" {
+  description = "The attributes of the private subnets"
+  value       = local.enable_vpc_creation ? module.vpc.private_subnet_attributes_by_az : null
+}
+
+output "rt_attributes_by_type_by_az" {
+  description = "The attributes of the route tables"
+  value       = local.enable_vpc_creation ? module.vpc.rt_attributes_by_type_by_az : null
+}
+
 output "vpc_id" {
   description = "The id of the vpc we used to provision the endpoints"
   value       = local.vpc_id
