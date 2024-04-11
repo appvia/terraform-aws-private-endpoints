@@ -106,13 +106,13 @@ variable "network" {
     # The subnet mask for private subnets, when creating the network
     private_netmask = optional(number, 24)
     # The ids of the private subnets to if we are reusing an existing network
-    private_subnet_ids = optional(list(string), null)
+    private_subnet_cidrs = optional(map(string), {})
     ## The transit gateway id to use for the network
-    transit_gateway_id = optional(string, null)
+    transit_gateway_id = optional(string, "")
     # The cider range to use for the VPC, when creating the network
-    vpc_cidr = optional(string, null)
+    vpc_cidr = optional(string, "")
     # The vpc id to use when reusing an existing network 
-    vpc_id = optional(string, null)
+    vpc_id = optional(string, "")
   })
 }
 

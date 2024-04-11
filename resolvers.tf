@@ -12,7 +12,7 @@ module "dns_security_group" {
   ingress_rules       = ["dns-tcp", "dns-udp"]
   egress_rules        = ["dns-tcp", "dns-udp"]
   tags                = merge(var.tags, { "Name" : "dns-resolvers-${var.name}" })
-  vpc_id              = module.vpc[0].vpc_id
+  vpc_id              = local.vpc_id
 }
 
 ## Provision an inbound resolver if required
