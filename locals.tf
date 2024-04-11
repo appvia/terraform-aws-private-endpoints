@@ -3,7 +3,7 @@ locals {
   ## The current region 
   region = data.aws_region.current.name
   ## Indicates if we should create a new VPC for the endpoints  
-  enable_vpc_creation = var.network != null
+  enable_vpc_creation = var.network.vpc_id != "" ? true : false
   ## Indicates if we should provision a inbount resolver 
   enable_inbound_resolver = var.resolvers.inbound.create
   ## Indicates if we should provision a outbound resolver 
