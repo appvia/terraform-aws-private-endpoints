@@ -3,7 +3,7 @@
 module "vpc" {
   count   = local.enable_vpc_creation ? 1 : 0
   source  = "appvia/network/aws"
-  version = "0.1.4"
+  version = "0.2.3"
 
   availability_zones     = var.network.availability_zones
   enable_ipam            = var.network.enable_ipam
