@@ -3,7 +3,7 @@
 module "vpc" {
   count   = local.enable_vpc_creation ? 1 : 0
   source  = "appvia/network/aws"
-  version = "0.1.4"
+  version = "0.3.0"
 
   availability_zones     = var.network.availability_zones
   enable_ipam            = var.network.enable_ipam
@@ -23,7 +23,7 @@ module "endpoints" {
 
   create_security_group      = true
   endpoints                  = local.endpoints
-  security_group_description = "Security group for VPC endpoints"
+  security_group_description = "Allow all https traffic to the private endpoints"
   security_group_name_prefix = "${var.name}-default"
   security_group_tags        = var.tags
   subnet_ids                 = local.private_subnet_ids

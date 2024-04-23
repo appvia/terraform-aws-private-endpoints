@@ -4,14 +4,16 @@
 # to build your own root module that invokes this module
 #####################################################################################
 
+## Create a client network to test the endpoints
 module "spoke" {
-  source = "github.com/appvia/terraform-aws-network?ref=main"
+  source  = "appvia/network/aws"
+  version = "0.3.0"
 
   availability_zones                    = 3
   enable_ipam                           = true
+  enable_route53_resolver_rules         = true
   enable_transit_gateway                = true
   enable_transit_gateway_appliance_mode = true
-  enable_route53_resolver_rules         = true
   ipam_pool_id                          = var.ipam_pool_id
   name                                  = "spoke-dns"
   private_subnet_netmask                = 24
@@ -58,13 +60,9 @@ module "endpoints" {
   }
 
   resolvers = {
-    inbound = {
-      create            = true
-      ip_address_offset = 10
-    }
     outbound = {
       create            = true
-      ip_address_offset = 12
+      ip_address_offset = 10
     }
   }
 

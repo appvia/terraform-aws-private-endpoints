@@ -15,26 +15,6 @@ module "dns_security_group" {
   vpc_id              = local.vpc_id
 }
 
-## Provision an inbound resolver if required
-resource "aws_route53_resolver_endpoint" "inbound" {
-  count = local.enable_inbound_resolver ? 1 : 0
-
-  name               = "inbound-${var.name}"
-  direction          = "INBOUND"
-  protocols          = var.resolvers.inbound.protocols
-  security_group_ids = [module.dns_security_group[0].security_group_id]
-  tags               = var.tags
-
-  dynamic "ip_address" {
-    for_each = local.inbound_resolver_addresses
-
-    content {
-      subnet_id = ip_address.key
-      ip        = ip_address.value
-    }
-  }
-}
-
 ## Provision an outbound resolver if required
 resource "aws_route53_resolver_endpoint" "outbound" {
   count = local.enable_outbound_resolver ? 1 : 0
@@ -53,4 +33,9 @@ resource "aws_route53_resolver_endpoint" "outbound" {
       ip        = ip_address.value
     }
   }
+
+  depends_on = [
+    module.endpoints,
+    module.vpc,
+  ]
 }

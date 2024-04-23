@@ -6,6 +6,7 @@
   </br>
   <img src="docs/private-endpoints.png" alt="AWS Private Endpoints"/>
 </p>
+<em>The diagram above is a high level representation of the module and the resources it creates; note in this design we DO NOT create an inbound resolver, as its not technically required</em>
 
 ## Description
 
@@ -15,9 +16,9 @@ The following module provides a AWS recommended pattern for sharing private endp
 
 - A shared vpc called `var.name` is created and attached to the transit gateway. Note, this module does not perform any actions on the transit gateway, it is assumed the correct settings to enable connectivity between the `var.name` vpc and the spokes is in place.
 - Inside the shared vpc the private endpoints are created, one for each service defined in `var.endpoints`. The default security groups permits all https traffic from `10.0.0.0/8` to ingress.
-- Optionally, depending on the configuration of the module, a outbound and inbound resolver is created. The inbound resolver is used to resolve the private endpoints, the outbound resolver is used to resolve the AWS services.
+- Optionally, depending on the configuration of the module, a outbound resolver is created. The outbound resolver is used to resolve the AWS services, against the default VPC resolver (VPC+2 ip)
 - Route53 resolver rules are created for each of the shared private endpoints, allowing the consumer to pick and choose which endpoints they want to resolve to the shared vpc.
-- The endpoints are shared using AWS RAM to the all the principals defined in the `var.sharing.principals` list e.g. a collection oof organizational units.
+- The endpoints are shared using AWS RAM to the all the principals defined in the `var.sharing.principals` list e.g. a collection of organizational units.
 - The spoke vpc's are responsible for associating the resolver rules with their vpc.
 - These rules intercept the DNS queries and route them to the shared vpc resolvers, returning the private endpoint ip address located within them.
 - Traffic from the spoke to the endpoints once resolved, is routed via the transit gateway.
@@ -68,10 +69,6 @@ module "endpoints" {
   }
 
   resolvers = {
-    inbound = {
-      create            = true
-      ip_address_offset = 10
-    }
     outbound = {
       create            = true
       ip_address_offset = 12
@@ -121,7 +118,7 @@ The `terraform-docs` utility is used to generate this README. Follow the below s
 | <a name="module_dns_security_group"></a> [dns\_security\_group](#module\_dns\_security\_group) | terraform-aws-modules/security-group/aws | 5.1.2 |
 | <a name="module_endpoints"></a> [endpoints](#module\_endpoints) | terraform-aws-modules/vpc/aws//modules/vpc-endpoints | 5.7.0 |
 | <a name="module_ram_share"></a> [ram\_share](#module\_ram\_share) | ./modules/ram_share | n/a |
-| <a name="module_vpc"></a> [vpc](#module\_vpc) | appvia/network/aws | 0.1.4 |
+| <a name="module_vpc"></a> [vpc](#module\_vpc) | appvia/network/aws | 0.3.0 |
 
 ## Resources
 
@@ -129,22 +126,20 @@ The `terraform-docs` utility is used to generate this README. Follow the below s
 |------|------|
 | [aws_ram_resource_association.endpoints](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ram_resource_association) | resource |
 | [aws_ram_resource_share.endpoints](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ram_resource_share) | resource |
-| [aws_route53_resolver_endpoint.inbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_endpoint) | resource |
 | [aws_route53_resolver_endpoint.outbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_endpoint) | resource |
 | [aws_route53_resolver_rule.endpoints](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_rule) | resource |
 | [aws_route53_resolver_rule.endpoints_single](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_rule) | resource |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
-| [aws_route53_resolver_endpoint.inbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/route53_resolver_endpoint) | data source |
 | [aws_route53_resolver_endpoint.outbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/route53_resolver_endpoint) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_network"></a> [network](#input\_network) | The network to use for the inbound and outbound resolvers | <pre>object({<br>    # The number of availability zones to create subnets in<br>    availability_zones = optional(number, 2)<br>    # Whether to create the network<br>    create = optional(bool, false)<br>    # Whether to use ipam when creating the network<br>    enable_ipam = optional(bool, false)<br>    # The id of the ipam pool to use when creating the network<br>    ipam_pool_id = optional(string, null)<br>    # The subnet mask for private subnets, when creating the network<br>    private_netmask = optional(number, 24)<br>    # The ids of the private subnets to if we are reusing an existing network<br>    private_subnet_cidrs = optional(map(string), {})<br>    ## The transit gateway id to use for the network<br>    transit_gateway_id = optional(string, "")<br>    # The cider range to use for the VPC, when creating the network<br>    vpc_cidr = optional(string, "")<br>    # The vpc id to use when reusing an existing network <br>    vpc_id = optional(string, "")<br>  })</pre> | n/a | yes |
-| <a name="input_resolvers"></a> [resolvers](#input\_resolvers) | The resolvers to provision | <pre>object({<br>    # Indicates we create a single resolver rule, rather than one per service_type <br>    create_single_resolver_rule = optional(bool, false)<br>    # The configuration for the inbound resolver<br>    inbound = object({<br>      # Whether to create the resolver <br>      create = optional(bool, true)<br>      # If creating the inbound resolver, the address offset to use i.e if<br>      ip_address_offset = optional(number, 11)<br>      # The protocols to use for the resolver<br>      protocols = optional(list(string), ["Do53", "DoH"])<br>      # When not creating the resolver, this is the name of the resolver to use<br>      use_existing = optional(string, null)<br>    })<br>    # The configuration for the outbound resolver<br>    outbound = object({<br>      # Whether to create the resolver<br>      create = optional(bool, true)<br>      # If creating the outbound resolver, the address offset to use i.e if 10.100.0.0/24, offset 10, ip address would be 10.100.0.10<br>      ip_address_offset = optional(number, 10)<br>      # The protocols to use for the resolver<br>      protocols = optional(list(string), ["Do53", "DoH"])<br>      # When not creating the resolver, this is the name of the resolver to use<br>      use_existing = optional(string, null)<br>    })<br>  })</pre> | n/a | yes |
+| <a name="input_network"></a> [network](#input\_network) | The network to use for the endpoints and optinal resolvers | <pre>object({<br>    # The number of availability zones to create subnets in<br>    availability_zones = optional(number, 2)<br>    # Whether to create the network<br>    create = optional(bool, false)<br>    # Whether to use ipam when creating the network<br>    enable_ipam = optional(bool, false)<br>    # The id of the ipam pool to use when creating the network<br>    ipam_pool_id = optional(string, null)<br>    # The subnet mask for private subnets, when creating the network<br>    private_netmask = optional(number, 24)<br>    # The ids of the private subnets to if we are reusing an existing network<br>    private_subnet_cidrs = optional(map(string), {})<br>    ## The transit gateway id to use for the network<br>    transit_gateway_id = optional(string, "")<br>    # The cider range to use for the VPC, when creating the network<br>    vpc_cidr = optional(string, "")<br>    # The vpc id to use when reusing an existing network <br>    vpc_id = optional(string, "")<br>  })</pre> | n/a | yes |
+| <a name="input_resolvers"></a> [resolvers](#input\_resolvers) | The resolvers to provision | <pre>object({<br>    # Indicates we create a single resolver rule, rather than one per service_type <br>    create_single_resolver_rule = optional(bool, false)<br>    # The configuration for the outbound resolver<br>    outbound = object({<br>      # Whether to create the resolver<br>      create = optional(bool, true)<br>      # If creating the outbound resolver, the address offset to use i.e if 10.100.0.0/24, offset 10, ip address would be 10.100.0.10<br>      ip_address_offset = optional(number, 10)<br>      # The protocols to use for the resolver<br>      protocols = optional(list(string), ["Do53", "DoH"])<br>      # When not creating the resolver, this is the name of the resolver to use<br>      use_existing = optional(string, null)<br>    })<br>  })</pre> | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | The tags to apply to the resources | `map(string)` | n/a | yes |
-| <a name="input_endpoints"></a> [endpoints](#input\_endpoints) | The endpoints to use for the inbound and outbound resolvers | <pre>map(object({<br>    # Whether to enable private dns<br>    private_dns_enabled = optional(bool, true)<br>    # The route table ids to use for the endpoint, assuming a gateway endpoint<br>    route_table_ids = optional(list(string), null)<br>    # service_type of the endpoint i.e. Gateway, Interface<br>    service_type = optional(string, "Interface")<br>    # The security group ids to use for the endpoint, else create on the fly<br>    security_group_ids = optional(list(string), null)<br>    # The AWS service we are creating a endpoint for<br>    service = string<br>    # The IAM policy associated to the endpoint <br>    policy = optional(string, null)<br>  }))</pre> | <pre>{<br>  "ec2": {<br>    "service": "ec2"<br>  },<br>  "ec2messages": {<br>    "service": "ec2messages"<br>  },<br>  "kms": {<br>    "service": "kms"<br>  },<br>  "logs": {<br>    "service": "logs"<br>  },<br>  "s3": {<br>    "service": "s3"<br>  },<br>  "secretsmanager": {<br>    "service": "secretsmanager"<br>  },<br>  "ssm": {<br>    "service": "ssm"<br>  },<br>  "ssmmessages": {<br>    "service": "ssmmessages"<br>  }<br>}</pre> | no |
+| <a name="input_endpoints"></a> [endpoints](#input\_endpoints) | The private endpoints to provision within the shared vpc | <pre>map(object({<br>    # Whether to enable private dns<br>    private_dns_enabled = optional(bool, true)<br>    # The route table ids to use for the endpoint, assuming a gateway endpoint<br>    route_table_ids = optional(list(string), null)<br>    # service_type of the endpoint i.e. Gateway, Interface<br>    service_type = optional(string, "Interface")<br>    # The security group ids to use for the endpoint, else create on the fly<br>    security_group_ids = optional(list(string), null)<br>    # The AWS service we are creating a endpoint for<br>    service = string<br>    # The IAM policy associated to the endpoint <br>    policy = optional(string, null)<br>  }))</pre> | <pre>{<br>  "ec2": {<br>    "service": "ec2"<br>  },<br>  "ec2messages": {<br>    "service": "ec2messages"<br>  },<br>  "kms": {<br>    "service": "kms"<br>  },<br>  "logs": {<br>    "service": "logs"<br>  },<br>  "s3": {<br>    "service": "s3"<br>  },<br>  "secretsmanager": {<br>    "service": "secretsmanager"<br>  },<br>  "ssm": {<br>    "service": "ssm"<br>  },<br>  "ssmmessages": {<br>    "service": "ssmmessages"<br>  }<br>}</pre> | no |
 | <a name="input_name"></a> [name](#input\_name) | The name of the environment | `string` | `"endpoints"` | no |
 | <a name="input_sharing"></a> [sharing](#input\_sharing) | The configuration for sharing the resolvers to other accounts | <pre>object({<br>    ## The principals to share the resolvers with <br>    principals = optional(list(string), null)<br>    # The preifx to use for the shared resolvers<br>    share_prefix = optional(string, "resolvers")<br>  })</pre> | <pre>{<br>  "principals": []<br>}</pre> | no |
 
@@ -153,12 +148,11 @@ The `terraform-docs` utility is used to generate this README. Follow the below s
 | Name | Description |
 |------|-------------|
 | <a name="output_endpoints"></a> [endpoints](#output\_endpoints) | The attributes of the endpoints we created |
-| <a name="output_inbound_resolver_endpoint_id"></a> [inbound\_resolver\_endpoint\_id](#output\_inbound\_resolver\_endpoint\_id) | The id of the inbound resolver if we created one |
-| <a name="output_inbound_resolver_ip_addresses"></a> [inbound\_resolver\_ip\_addresses](#output\_inbound\_resolver\_ip\_addresses) | The ip addresses of the inbound resolver if we created one |
 | <a name="output_outbound_resolver_endpoint_id"></a> [outbound\_resolver\_endpoint\_id](#output\_outbound\_resolver\_endpoint\_id) | The id of the outbound resolver if we created one |
 | <a name="output_outbound_resolver_ip_addresses"></a> [outbound\_resolver\_ip\_addresses](#output\_outbound\_resolver\_ip\_addresses) | The ip addresses of the outbound resolver if we created one |
 | <a name="output_private_subnet_attributes_by_az"></a> [private\_subnet\_attributes\_by\_az](#output\_private\_subnet\_attributes\_by\_az) | The attributes of the private subnets |
 | <a name="output_resolver_security_group_id"></a> [resolver\_security\_group\_id](#output\_resolver\_security\_group\_id) | The id of the security group we created for the endpoints if we created one |
 | <a name="output_rt_attributes_by_type_by_az"></a> [rt\_attributes\_by\_type\_by\_az](#output\_rt\_attributes\_by\_type\_by\_az) | The attributes of the route tables |
+| <a name="output_vpc_attributes"></a> [vpc\_attributes](#output\_vpc\_attributes) | The attributes of the vpc we created |
 | <a name="output_vpc_id"></a> [vpc\_id](#output\_vpc\_id) | The id of the vpc we used to provision the endpoints |
 <!-- END_TF_DOCS -->
