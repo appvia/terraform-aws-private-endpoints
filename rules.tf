@@ -9,15 +9,11 @@ resource "aws_route53_resolver_rule" "endpoints" {
   resolver_endpoint_id = local.outbound_resolver_id
   tags                 = merge(var.tags, { "Name" : format("resolver-rule-%s", each.value.service) })
 
-  dynamic "target_ip" {
-    for_each = local.inbound_resolver_ip_addresses
-
-    content {
-      ip = target_ip.value
-    }
+  target_ip {
+    ip = local.vpc_dns_resolver
   }
 
-  depends_on = [module.endpoints]
+  depends_on = [module.endpoints, module.vpc]
 }
 
 ## Provision a single resolver rule for all endpoints 
@@ -30,13 +26,9 @@ resource "aws_route53_resolver_rule" "endpoints_single" {
   resolver_endpoint_id = local.outbound_resolver_id
   tags                 = merge(var.tags, { "Name" : "${var.name}-resolver-rule-all" })
 
-  dynamic "target_ip" {
-    for_each = local.inbound_resolver_ip_addresses
-
-    content {
-      ip = target_ip.value
-    }
+  target_ip {
+    ip = local.vpc_dns_resolver
   }
 
-  depends_on = [module.endpoints]
+  depends_on = [module.endpoints, module.vpc]
 }

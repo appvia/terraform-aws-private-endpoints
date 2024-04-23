@@ -4,17 +4,6 @@ variable "resolvers" {
   type = object({
     # Indicates we create a single resolver rule, rather than one per service_type 
     create_single_resolver_rule = optional(bool, false)
-    # The configuration for the inbound resolver
-    inbound = object({
-      # Whether to create the resolver 
-      create = optional(bool, true)
-      # If creating the inbound resolver, the address offset to use i.e if
-      ip_address_offset = optional(number, 11)
-      # The protocols to use for the resolver
-      protocols = optional(list(string), ["Do53", "DoH"])
-      # When not creating the resolver, this is the name of the resolver to use
-      use_existing = optional(string, null)
-    })
     # The configuration for the outbound resolver
     outbound = object({
       # Whether to create the resolver
@@ -43,7 +32,7 @@ variable "sharing" {
 }
 
 variable "endpoints" {
-  description = "The endpoints to use for the inbound and outbound resolvers"
+  description = "The private endpoints to provision within the shared vpc"
   type = map(object({
     # Whether to enable private dns
     private_dns_enabled = optional(bool, true)
@@ -93,7 +82,7 @@ variable "name" {
 }
 
 variable "network" {
-  description = "The network to use for the inbound and outbound resolvers"
+  description = "The network to use for the endpoints and optinal resolvers"
   type = object({
     # The number of availability zones to create subnets in
     availability_zones = optional(number, 2)

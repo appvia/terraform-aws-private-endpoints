@@ -4,11 +4,6 @@ output "endpoints" {
   value       = module.endpoints.endpoints
 }
 
-output "inbound_resolver_endpoint_id" {
-  description = "The id of the inbound resolver if we created one"
-  value       = local.enable_inbound_resolver ? aws_route53_resolver_endpoint.inbound[0].id : local.inbound_resolver_id
-}
-
 output "outbound_resolver_endpoint_id" {
   description = "The id of the outbound resolver if we created one"
   value       = local.enable_outbound_resolver ? aws_route53_resolver_endpoint.outbound[0].id : local.outbound_resolver_id
@@ -24,11 +19,6 @@ output "outbound_resolver_ip_addresses" {
   value       = local.enable_outbound_resolver ? local.outbound_resolver_ip_addresses : null
 }
 
-output "inbound_resolver_ip_addresses" {
-  description = "The ip addresses of the inbound resolver if we created one"
-  value       = local.enable_inbound_resolver ? local.inbound_resolver_ip_addresses : null
-}
-
 output "private_subnet_attributes_by_az" {
   description = "The attributes of the private subnets"
   value       = local.enable_vpc_creation ? module.vpc[0].private_subnet_attributes_by_az : null
@@ -37,6 +27,11 @@ output "private_subnet_attributes_by_az" {
 output "rt_attributes_by_type_by_az" {
   description = "The attributes of the route tables"
   value       = local.enable_vpc_creation ? module.vpc[0].rt_attributes_by_type_by_az : null
+}
+
+output "vpc_attributes" {
+  description = "The attributes of the vpc we created"
+  value       = local.enable_vpc_creation ? module.vpc[0].vpc_attributes : null
 }
 
 output "vpc_id" {
