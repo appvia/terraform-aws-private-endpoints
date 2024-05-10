@@ -59,6 +59,8 @@ module "endpoints" {
     vpc_id = module.network.vpc_id
     ## Reuse the private subnets we created above 
     private_subnet_cidr_by_id = module.network.private_subnet_cidr_by_id
+    ## The transit_gateway_id to use for the network 
+    transit_gateway_id = var.transit_gateway_id
     ## Do not create a new network 
     create = false
   }
