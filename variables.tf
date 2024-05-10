@@ -84,24 +84,24 @@ variable "name" {
 variable "network" {
   description = "The network to use for the endpoints and optinal resolvers"
   type = object({
-    # The number of availability zones to create subnets in
     availability_zones = optional(number, 2)
-    # Whether to create the network
+    # The number of availability zones to create subnets in
     create = optional(bool, false)
-    # Whether to use ipam when creating the network
+    # Whether to create the network
     enable_ipam = optional(bool, false)
-    # The id of the ipam pool to use when creating the network
+    # Whether to use ipam when creating the network
     ipam_pool_id = optional(string, null)
-    # The subnet mask for private subnets, when creating the network
+    # The id of the ipam pool to use when creating the network
     private_netmask = optional(number, 24)
+    # The subnet mask for private subnets, when creating the network i.e subnet-id => 10.90.0.0/24
+    private_subnet_cidrs_by_id = optional(map(string), {})
     # The ids of the private subnets to if we are reusing an existing network
-    private_subnet_cidrs = optional(map(string), {})
-    ## The transit gateway id to use for the network
     transit_gateway_id = optional(string, "")
-    # The cider range to use for the VPC, when creating the network
+    ## The transit gateway id to use for the network
     vpc_cidr = optional(string, "")
-    # The vpc id to use when reusing an existing network 
+    # The cidr range to use for the VPC, when creating the network
     vpc_id = optional(string, "")
+    # The vpc id to use when reusing an existing network 
   })
 }
 
