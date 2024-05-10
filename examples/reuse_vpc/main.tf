@@ -4,8 +4,8 @@
 # to build your own root module that invokes this module
 #####################################################################################
 
-## Create a client network to test the endpoints
-module "spoke" {
+## Create a network for the endpoints to reuse 
+module "network" {
   source  = "appvia/network/aws"
   version = "0.3.0"
 
@@ -15,7 +15,7 @@ module "spoke" {
   enable_transit_gateway                = true
   enable_transit_gateway_appliance_mode = true
   ipam_pool_id                          = var.ipam_pool_id
-  name                                  = "spoke-dns"
+  name                                  = "endpoints"
   private_subnet_netmask                = 24
   tags                                  = var.tags
   transit_gateway_id                    = var.transit_gateway_id
@@ -29,9 +29,6 @@ module "endpoints" {
   name = "endpoints"
   tags = var.tags
   endpoints = {
-    "s3" = {
-      service = "s3"
-    },
     "ec2" = {
       service = "ec2"
     },
@@ -44,15 +41,6 @@ module "endpoints" {
     "ssmmessages" = {
       service = "ssmmessages"
     },
-    "logs" = {
-      service = "logs"
-    },
-    "kms" = {
-      service = "kms"
-    },
-    "secretsmanager" = {
-      service = "secretsmanager"
-    }
   }
 
   sharing = {
@@ -67,13 +55,13 @@ module "endpoints" {
   }
 
   network = {
-    # Name of the network to create
-    name = "endpoints"
-    # Number of availability zones to create subnets in
-    private_netmask = 24
-    # The transit gateway to connect 
-    transit_gateway_id = var.transit_gateway_id
-    # The cider range to use for the VPC
-    vpc_cidr = "10.20.0.0/21"
+    ## Reuse the network we created above 
+    vpc_id = module.network.vpc_id
+    ## Reuse the private subnets we created above 
+    private_subnet_cidr_by_id = module.network.private_subnet_cidr_by_id
+    ## Do not create a new network 
+    create = false
   }
+
+  depends_on = [module.network]
 }

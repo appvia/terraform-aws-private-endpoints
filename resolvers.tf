@@ -26,11 +26,10 @@ resource "aws_route53_resolver_endpoint" "outbound" {
   tags               = var.tags
 
   dynamic "ip_address" {
-    for_each = local.outbound_resolver_addresses
+    for_each = local.private_subnet_ids
 
     content {
-      subnet_id = ip_address.key
-      ip        = ip_address.value
+      subnet_id = ip_address.value
     }
   }
 
