@@ -1,7 +1,5 @@
 
 locals {
-  ## The current region 
-  region = data.aws_region.current.name
   ## Indicates if we should create a new VPC for the endpoints  
   enable_vpc_creation = var.network.create
   ## Indicates if we should provision a outbound resolver 
@@ -45,5 +43,5 @@ locals {
   }
 
   ## A of the domains to endpoint configuration 
-  endpoints_rules = { for x in var.endpoints : format("%s.%s.amazonaws.com", x.service, "eu-west-2") => x }
+  endpoints_rules = { for x in var.endpoints : format("%s.%s.amazonaws.com", x.service, var.region) => x }
 }

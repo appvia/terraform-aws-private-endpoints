@@ -68,6 +68,11 @@ variable "name" {
   type        = string
 }
 
+variable "region" {
+  description = "The region to deploy the resources"
+  type        = string
+}
+
 variable "network" {
   description = "The network to use for the endpoints and optinal resolvers"
   type = object({

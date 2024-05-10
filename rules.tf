@@ -13,14 +13,14 @@ resource "aws_route53_resolver_rule" "endpoints" {
     ip = local.vpc_dns_resolver
   }
 
-  depends_on = [module.endpoints, module.vpc, data.aws_region.current]
+  depends_on = [module.endpoints, module.vpc]
 }
 
 ## Provision a single resolver rule for all endpoints 
 resource "aws_route53_resolver_rule" "endpoints_single" {
   count = var.resolvers.create_single_resolver_rule ? 1 : 0
 
-  domain_name          = "${local.region}.amazonaws.com"
+  domain_name          = "${var.region}.amazonaws.com"
   name                 = "${var.name}-resolver-rule-all"
   rule_type            = "FORWARD"
   resolver_endpoint_id = local.outbound_resolver_id

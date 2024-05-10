@@ -1,10 +1,7 @@
 
-## Find the current AWS region 
-data "aws_region" "current" {}
-
 ## Find the VPC by id, if required
 data "aws_vpc" "current" {
-  count = local.enable_vpc_creation ? 0 : 1
+  count = local.enable_vpc_creation ? 0 : 0
 
   id = var.network.vpc_id
 }
