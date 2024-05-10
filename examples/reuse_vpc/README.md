@@ -16,7 +16,7 @@ No providers.
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_endpoints"></a> [endpoints](#module\_endpoints) | ../.. | n/a |
-| <a name="module_spoke"></a> [spoke](#module\_spoke) | appvia/network/aws | 0.3.0 |
+| <a name="module_network"></a> [network](#module\_network) | appvia/network/aws | 0.3.0 |
 
 ## Resources
 
@@ -40,4 +40,3 @@ No resources.
 | <a name="output_vpc_attributes"></a> [vpc\_attributes](#output\_vpc\_attributes) | The attributes of the vpc we created |
 | <a name="output_vpc_id"></a> [vpc\_id](#output\_vpc\_id) | The id of the vpc we used to provision the endpoints |
 <!-- END_TF_DOCS -->
-

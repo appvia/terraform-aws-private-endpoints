@@ -6,7 +6,7 @@ module "vpc" {
   version = "0.3.0"
 
   availability_zones     = var.network.availability_zones
-  enable_ipam            = var.network.enable_ipam
+  enable_ipam            = local.enable_ipam
   enable_transit_gateway = true
   ipam_pool_id           = var.network.ipam_pool_id
   name                   = var.name
@@ -14,6 +14,7 @@ module "vpc" {
   tags                   = var.tags
   transit_gateway_id     = var.network.transit_gateway_id
   vpc_cidr               = var.network.vpc_cidr
+  vpc_netmask            = var.network.vpc_netmask
 }
 
 ## Provision the VPC endpoints within the network 
@@ -43,4 +44,6 @@ module "endpoints" {
       type        = "egress"
     }
   }
+
+  depends_on = [module.vpc]
 }

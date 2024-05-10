@@ -13,7 +13,7 @@ resource "aws_route53_resolver_rule" "endpoints" {
     ip = local.vpc_dns_resolver
   }
 
-  depends_on = [module.endpoints, module.vpc]
+  depends_on = [module.endpoints, module.vpc, data.aws_region.current]
 }
 
 ## Provision a single resolver rule for all endpoints 

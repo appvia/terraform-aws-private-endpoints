@@ -8,6 +8,8 @@ locals {
   enable_outbound_resolver = var.resolvers.outbound.create
   ## Indicates if we should provision a security group for dns 
   enable_dns_security_group = local.enable_outbound_resolver
+  ## Indicates if we are uing ipam for the vpc creation 
+  enable_ipam = local.enable_vpc_creation && var.network.ipam_pool_id != "" ? true : false
 
   ## The private subnets to create resolvers on (either the VPC we created or the list provided)
   private_subnet_ids = local.enable_vpc_creation ? module.vpc[0].private_subnet_ids : keys(var.network.private_subnet_cidr_by_id)
@@ -23,8 +25,10 @@ locals {
   ## The ip addresses which the outbound resolvers will be using
   outbound_resolver_ip_addresses = local.enable_outbound_resolver ? local.outbound_resolver_addresses : data.aws_route53_resolver_endpoint.outbound[0].ip_addresses
 
+  ## The vpc cidr range of the existing vpc 
+  vpc_existing_cidr = local.enable_vpc_creation ? null : data.aws_vpc.current[0].cidr_block
   ## The ip addresses for the vpc resolver, where the outbound resolver will forward requests to
-  vpc_dns_resolver = local.enable_vpc_creation ? cidrhost(module.vpc[0].vpc_attributes.cidr_block, 2) : null
+  vpc_dns_resolver = var.network.create ? cidrhost(module.vpc[0].vpc_attributes.cidr_block, 2) : cidrhost(local.vpc_existing_cidr, 2)
   ## The vpc id, which is either the one we created or the one provided
   vpc_id = local.enable_vpc_creation ? module.vpc[0].vpc_id : var.network.vpc_id
 
@@ -41,5 +45,5 @@ locals {
   }
 
   ## A of the domains to endpoint configuration 
-  endpoints_rules = { for x in var.endpoints : format("%s.%s.amazonaws.com", x.service, local.region) => x }
+  endpoints_rules = { for x in var.endpoints : format("%s.%s.amazonaws.com", x.service, "eu-west-2") => x }
 }
