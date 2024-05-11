@@ -126,6 +126,8 @@ module "endpoints" {
   }
 
   network = {
+    ## The vpc_cidr of the network we are reusing
+    vpc_cidr = <VPC_CIDR>
     ## Reuse the network we created above
     vpc_id = <VPC_ID>
     ## Reuse the private subnets we created above i.e subnet-id => cidr
@@ -177,14 +179,13 @@ The `terraform-docs` utility is used to generate this README. Follow the below s
 | [aws_route53_resolver_rule.endpoints](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_rule) | resource |
 | [aws_route53_resolver_rule.endpoints_single](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_resolver_rule) | resource |
 | [aws_route53_resolver_endpoint.outbound](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/route53_resolver_endpoint) | data source |
-| [aws_vpc.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/vpc) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_name"></a> [name](#input\_name) | The name of the environment | `string` | n/a | yes |
-| <a name="input_network"></a> [network](#input\_network) | The network to use for the endpoints and optinal resolvers | <pre>object({<br>    availability_zones = optional(number, 2)<br>    # Whether to use ipam when creating the network<br>    create = optional(bool, true)<br>    # Indicates if we should create a new network or reuse an existing one<br>    ipam_pool_id = optional(string, null)<br>    # The id of the ipam pool to use when creating the network<br>    private_netmask = optional(number, 24)<br>    # The subnet mask for private subnets, when creating the network i.e subnet-id => 10.90.0.0/24<br>    private_subnet_cidr_by_id = optional(map(string), {})<br>    # The ids of the private subnets to if we are reusing an existing network<br>    transit_gateway_id = optional(string, "")<br>    ## The transit gateway id to use for the network<br>    vpc_cidr = optional(string, "")<br>    # The cidrws range to use for the VPC, when creating the network<br>    vpc_id = optional(string, "")<br>    # The vpc id to use when reusing an existing network <br>    vpc_netmask = optional(number, null)<br>    # When using ipam this the netmask to use for the VPC<br>  })</pre> | n/a | yes |
+| <a name="input_network"></a> [network](#input\_network) | The network to use for the endpoints and optinal resolvers | <pre>object({<br>    availability_zones = optional(number, 2)<br>    # Whether to use ipam when creating the network<br>    create = optional(bool, true)<br>    # Indicates if we should create a new network or reuse an existing one<br>    ipam_pool_id = optional(string, null)<br>    # The id of the ipam pool to use when creating the network<br>    private_netmask = optional(number, 24)<br>    # The subnet mask for private subnets, when creating the network i.e subnet-id => 10.90.0.0/24<br>    private_subnet_cidr_by_id = optional(map(string), {})<br>    # The ids of the private subnets to if we are reusing an existing network<br>    transit_gateway_id = optional(string, "")<br>    ## The transit gateway id to use for the network<br>    vpc_cidr = optional(string, "")<br>    # The cidrws range to use for the VPC, when creating the network<br>    vpc_id = optional(string, "")<br>    # The vpc id to use when reusing an existing network <br>    vpc_netmask = optional(number, null)<br>    # When using ipam this the netmask to use for the VPC<br>    vpc_dns_resolver = optional(string, "")<br>    # The ip address to use for the vpc dns resolver<br>  })</pre> | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | The region to deploy the resources | `string` | n/a | yes |
 | <a name="input_resolvers"></a> [resolvers](#input\_resolvers) | The resolvers to provision | <pre>object({<br>    # Indicates we create a single resolver rule, rather than one per service_type <br>    create_single_resolver_rule = optional(bool, false)<br>    # The configuration for the outbound resolver<br>    outbound = object({<br>      # Whether to create the resolver<br>      create = optional(bool, true)<br>      # If creating the outbound resolver, the address offset to use i.e if 10.100.0.0/24, offset 10, ip address would be 10.100.0.10<br>      ip_address_offset = optional(number, 10)<br>      # The protocols to use for the resolver<br>      protocols = optional(list(string), ["Do53", "DoH"])<br>      # When not creating the resolver, this is the name of the resolver to use<br>      use_existing = optional(string, null)<br>    })<br>  })</pre> | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | The tags to apply to the resources | `map(string)` | n/a | yes |
@@ -201,6 +202,7 @@ The `terraform-docs` utility is used to generate this README. Follow the below s
 | <a name="output_private_subnet_attributes_by_az"></a> [private\_subnet\_attributes\_by\_az](#output\_private\_subnet\_attributes\_by\_az) | The attributes of the private subnets |
 | <a name="output_resolver_security_group_id"></a> [resolver\_security\_group\_id](#output\_resolver\_security\_group\_id) | The id of the security group we created for the endpoints if we created one |
 | <a name="output_rt_attributes_by_type_by_az"></a> [rt\_attributes\_by\_type\_by\_az](#output\_rt\_attributes\_by\_type\_by\_az) | The attributes of the route tables |
+| <a name="output_transit_gateway_attachment_id"></a> [transit\_gateway\_attachment\_id](#output\_transit\_gateway\_attachment\_id) | The id of the transit gateway we used to provision the endpoints |
 | <a name="output_vpc_attributes"></a> [vpc\_attributes](#output\_vpc\_attributes) | The attributes of the vpc we created |
 | <a name="output_vpc_id"></a> [vpc\_id](#output\_vpc\_id) | The id of the vpc we used to provision the endpoints |
 <!-- END_TF_DOCS -->

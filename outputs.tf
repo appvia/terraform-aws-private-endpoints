@@ -29,6 +29,11 @@ output "rt_attributes_by_type_by_az" {
   value       = local.enable_vpc_creation ? module.vpc[0].rt_attributes_by_type_by_az : null
 }
 
+output "transit_gateway_attachment_id" {
+  description = "The id of the transit gateway we used to provision the endpoints"
+  value       = local.enable_vpc_creation ? module.vpc[0].transit_gateway_attachment_id : var.network.transit_gateway_id
+}
+
 output "vpc_attributes" {
   description = "The attributes of the vpc we created"
   value       = local.enable_vpc_creation ? module.vpc[0].vpc_attributes : null
@@ -38,3 +43,4 @@ output "vpc_id" {
   description = "The id of the vpc we used to provision the endpoints"
   value       = local.vpc_id
 }
+

@@ -23,10 +23,8 @@ locals {
   ## The ip addresses which the outbound resolvers will be using
   outbound_resolver_ip_addresses = local.enable_outbound_resolver ? local.outbound_resolver_addresses : data.aws_route53_resolver_endpoint.outbound[0].ip_addresses
 
-  ## The vpc cidr range of the existing vpc 
-  vpc_existing_cidr = local.enable_vpc_creation ? null : data.aws_vpc.current[0].cidr_block
   ## The ip addresses for the vpc resolver, where the outbound resolver will forward requests to
-  vpc_dns_resolver = var.network.create ? cidrhost(module.vpc[0].vpc_attributes.cidr_block, 2) : cidrhost(local.vpc_existing_cidr, 2)
+  vpc_dns_resolver = var.network.create ? cidrhost(module.vpc[0].vpc_attributes.cidr_block, 2) : var.network.vpc_dns_resolver
   ## The vpc id, which is either the one we created or the one provided
   vpc_id = local.enable_vpc_creation ? module.vpc[0].vpc_id : var.network.vpc_id
 

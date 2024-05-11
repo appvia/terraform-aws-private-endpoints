@@ -94,6 +94,8 @@ variable "network" {
     # The vpc id to use when reusing an existing network 
     vpc_netmask = optional(number, null)
     # When using ipam this the netmask to use for the VPC
+    vpc_dns_resolver = optional(string, "")
+    # The ip address to use for the vpc dns resolver
   })
 }
 
