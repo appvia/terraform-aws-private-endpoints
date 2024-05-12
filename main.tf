@@ -5,16 +5,18 @@ module "vpc" {
   source  = "appvia/network/aws"
   version = "0.3.0"
 
-  availability_zones     = var.network.availability_zones
-  enable_ipam            = local.enable_ipam
-  enable_transit_gateway = true
-  ipam_pool_id           = var.network.ipam_pool_id
-  name                   = var.name
-  private_subnet_netmask = var.network.private_netmask
-  tags                   = var.tags
-  transit_gateway_id     = var.network.transit_gateway_id
-  vpc_cidr               = var.network.vpc_cidr
-  vpc_netmask            = var.network.vpc_netmask
+  availability_zones                     = var.network.availability_zones
+  enable_default_route_table_association = var.network.enable_default_route_table_association
+  enable_default_route_table_propagation = var.network.enable_default_route_table_propagation
+  enable_ipam                            = local.enable_ipam
+  enable_transit_gateway                 = true
+  ipam_pool_id                           = var.network.ipam_pool_id
+  name                                   = var.name
+  private_subnet_netmask                 = var.network.private_netmask
+  tags                                   = var.tags
+  transit_gateway_id                     = var.network.transit_gateway_id
+  vpc_cidr                               = var.network.vpc_cidr
+  vpc_netmask                            = var.network.vpc_netmask
 }
 
 ## Provision the VPC endpoints within the network 

@@ -80,6 +80,10 @@ variable "network" {
     # Whether to use ipam when creating the network
     create = optional(bool, true)
     # Indicates if we should create a new network or reuse an existing one
+    enable_default_route_table_association = optional(bool, true)
+    # Whether to associate the default route table  
+    enable_default_route_table_propagation = optional(bool, true)
+    # Whether to propagate the default route table
     ipam_pool_id = optional(string, null)
     # The id of the ipam pool to use when creating the network
     private_netmask = optional(number, 24)
