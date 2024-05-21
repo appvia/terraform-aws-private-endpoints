@@ -26,8 +26,10 @@ module "spoke" {
 module "endpoints" {
   source = "../.."
 
-  name = "endpoints"
-  tags = var.tags
+  name   = "endpoints"
+  tags   = var.tags
+  region = var.region
+
   endpoints = {
     "s3" = {
       service = "s3"

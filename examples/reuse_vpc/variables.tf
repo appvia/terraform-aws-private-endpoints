@@ -22,3 +22,9 @@ variable "ipam_pool_id" {
   type        = string
   default     = null
 }
+
+variable "region" {
+  description = "The region to create the VPC in"
+  type        = string
+  default     = "eu-west-2"
+}
