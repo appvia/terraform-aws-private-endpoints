@@ -23,5 +23,4 @@ module "ram_share" {
 
   ram_principals         = var.sharing.principals
   ram_resource_share_arn = aws_ram_resource_share.endpoints[each.key].arn
-  tags                   = var.tags
 }

@@ -26,8 +26,10 @@ module "network" {
 module "endpoints" {
   source = "../.."
 
-  name = "endpoints"
-  tags = var.tags
+  name   = "endpoints"
+  region = var.region
+  tags   = var.tags
+
   endpoints = {
     "ec2" = {
       service = "ec2"
