@@ -22,7 +22,7 @@ module "vpc" {
 ## Provision the VPC endpoints within the network 
 module "endpoints" {
   source  = "terraform-aws-modules/vpc/aws//modules/vpc-endpoints"
-  version = "5.8.1"
+  version = "5.9.0"
 
   create_security_group      = true
   endpoints                  = local.endpoints
