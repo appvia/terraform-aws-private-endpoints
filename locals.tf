@@ -34,7 +34,6 @@ locals {
       policy              = x.policy,
       private_dns_enabled = !contains(["dynamodb", "s3"], x.service) ? true : false
       route_table_ids     = local.enable_vpc_creation ? module.vpc[0].private_route_table_ids : x.route_table_ids
-      service             = x.service,
       service_name        = format("com.amazonaws.%s.%s", var.region, x.service),
       service_type        = x.service_type,
       tags                = merge(var.tags, { "Name" : format("%s-endpoint", x.service) }),
