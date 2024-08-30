@@ -165,9 +165,9 @@ The `terraform-docs` utility is used to generate this README. Follow the below s
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_dns_security_group"></a> [dns\_security\_group](#module\_dns\_security\_group) | terraform-aws-modules/security-group/aws | 5.1.2 |
-| <a name="module_endpoints"></a> [endpoints](#module\_endpoints) | terraform-aws-modules/vpc/aws//modules/vpc-endpoints | 5.8.1 |
+| <a name="module_endpoints"></a> [endpoints](#module\_endpoints) | terraform-aws-modules/vpc/aws//modules/vpc-endpoints | 5.13.0 |
 | <a name="module_ram_share"></a> [ram\_share](#module\_ram\_share) | ./modules/ram_share | n/a |
-| <a name="module_vpc"></a> [vpc](#module\_vpc) | appvia/network/aws | 0.3.0 |
+| <a name="module_vpc"></a> [vpc](#module\_vpc) | appvia/network/aws | 0.3.1 |
 
 ## Resources
 
