@@ -58,23 +58,21 @@ resource "aws_security_group" "this" {
 }
 
 ## Provision the security group rule to permit all internal traffic 
-resource "aws_security_group_rule" "allow_all_internal_traffic" {
-  cidr_blocks       = ["10.0.0.0/8"]
+resource "aws_vpc_security_group_ingress_rule" "allow_https_ingress" {
+  cidr_ipv4         = "10.0.0.0/8"
   description       = "Allow all https traffic to the private endpoint for the ${var.name} environment"
   from_port         = 443
-  protocol          = "tcp"
+  ip_protocol       = "tcp"
   security_group_id = aws_security_group.this.id
   to_port           = 443
-  type              = "ingress"
 }
 
 ## Provision the security group rules to allow all https egress traffic 
-resource "aws_security_group_rule" "allow_https_egress" {
-  cidr_blocks       = ["10.0.0.0/8"]
+resource "aws_vpc_security_group_egress_rule" "allow_https_egress" {
+  cidr_ipv4         = "10.0.0.0/8"
   description       = "Allow all https traffic from the private endpoints for the ${var.name} environment"
   from_port         = 443
-  protocol          = "tcp"
+  ip_protocol       = "tcp"
   security_group_id = aws_security_group.this.id
   to_port           = 443
-  type              = "egress"
 }
