@@ -19,33 +19,62 @@ module "vpc" {
   vpc_netmask                            = var.network.vpc_netmask
 }
 
-## Provision the VPC endpoints within the network 
-module "endpoints" {
-  source  = "terraform-aws-modules/vpc/aws//modules/vpc-endpoints"
-  version = "5.13.0"
+## Provision the private endpoint within the network
+resource "aws_vpc_endpoint" "this" {
+  for_each = local.endpoints
 
-  create_security_group      = true
-  endpoints                  = local.endpoints
-  security_group_description = "Allow all https traffic to the private endpoints"
-  security_group_name_prefix = "${var.name}-default"
-  security_group_tags        = var.tags
-  subnet_ids                 = local.private_subnet_ids
-  tags                       = var.tags
-  vpc_id                     = local.vpc_id
+  auto_accept         = try(each.value.auto_accept, null)
+  ip_address_type     = try(each.value.ip_address_type, null)
+  policy              = try(each.value.policy, null)
+  private_dns_enabled = try(each.value.service_type, "Interface") == "Interface" ? try(each.value.private_dns_enabled, null) : null
+  route_table_ids     = try(each.value.service_type, "Interface") == "Gateway" ? lookup(each.value, "route_table_ids", null) : null
+  security_group_ids  = try(each.value.service_type, "Interface") == "Interface" ? length(distinct(concat(local.security_group_ids, lookup(each.value, "security_group_ids", [])))) > 0 ? distinct(concat(local.security_group_ids, lookup(each.value, "security_group_ids", []))) : null : null
+  service_name        = try(each.value.service_endpoint, null)
+  subnet_ids          = try(each.value.service_type, "Interface") == "Interface" ? distinct(concat(local.private_subnet_ids, lookup(each.value, "subnet_ids", []))) : null
+  tags                = merge(var.tags, try(each.value.tags, {}))
+  vpc_endpoint_type   = try(each.value.service_type, "Interface")
+  vpc_id              = local.vpc_id
 
-  security_group_rules = {
-    ingress_https = {
-      description = "Allow all https traffic to the private endpoints"
-      cidr_blocks = ["10.0.0.0/8"]
-    }
-    egress_all = {
-      description = "Allow all https traffic to the private endpoints"
-      cidr_blocks = ["10.0.0.0/8"]
-      from_port   = 443
-      to_port     = 443
-      type        = "egress"
+  dynamic "dns_options" {
+    for_each = try([each.value.dns_options], [])
+
+    content {
+      dns_record_ip_type                             = try(dns_options.value.dns_options.dns_record_ip_type, null)
+      private_dns_only_for_inbound_resolver_endpoint = try(dns_options.value.private_dns_only_for_inbound_resolver_endpoint, null)
     }
   }
+}
 
-  depends_on = [module.vpc]
+## Provision the security group for the private endpoints 
+resource "aws_security_group" "this" {
+  description = "Security group for the private endpoints for the ${var.name} environment"
+  name        = "${var.name}-default"
+  tags        = merge(var.tags, { "Name" = "${var.name}-default" })
+  vpc_id      = local.vpc_id
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+## Provision the security group rule to permit all internal traffic 
+resource "aws_security_group_rule" "allow_all_internal_traffic" {
+  cidr_blocks       = ["10.0.0.0/8"]
+  description       = "Allow all internal traffic to the private endpoints for the ${var.name} environment"
+  from_port         = 0
+  protocol          = "-1"
+  security_group_id = aws_security_group.this.id
+  to_port           = 0
+  type              = "ingress"
+}
+
+## Provision the security group rules to allow all https egress traffic 
+resource "aws_security_group_rule" "allow_https_egress" {
+  cidr_blocks       = ["10.0.0.0/8"]
+  description       = "Allow all https traffic to the private endpoints for the ${var.name} environment"
+  from_port         = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.this.id
+  to_port           = 443
+  type              = "egress"
 }

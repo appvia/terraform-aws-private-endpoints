@@ -1,7 +1,7 @@
 
 output "endpoints" {
-  description = "The attributes of the endpoints we created"
-  value       = module.endpoints.endpoints
+  description = "Array containing the full resource object and attributes for all endpoints created"
+  value       = aws_vpc_endpoint.this
 }
 
 output "outbound_resolver_endpoint_id" {

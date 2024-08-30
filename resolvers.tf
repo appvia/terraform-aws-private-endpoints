@@ -34,7 +34,6 @@ resource "aws_route53_resolver_endpoint" "outbound" {
   }
 
   depends_on = [
-    module.endpoints,
     module.vpc,
   ]
 }

@@ -13,7 +13,7 @@ resource "aws_route53_resolver_rule" "endpoints" {
     ip = local.vpc_dns_resolver
   }
 
-  depends_on = [module.endpoints, module.vpc]
+  depends_on = [module.vpc]
 }
 
 ## Provision a single resolver rule for all endpoints 
@@ -30,5 +30,5 @@ resource "aws_route53_resolver_rule" "endpoints_single" {
     ip = local.vpc_dns_resolver
   }
 
-  depends_on = [module.endpoints, module.vpc]
+  depends_on = [module.vpc]
 }

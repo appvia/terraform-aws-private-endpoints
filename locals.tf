@@ -42,4 +42,7 @@ locals {
 
   ## A of the domains to endpoint configuration 
   endpoints_rules = { for x in var.endpoints : format("%s.%s.amazonaws.com", x.service, var.region) => x }
+
+  ## The security group ids to use for the endpoints 
+  security_group_ids = [aws_security_group.this.id]
 }
