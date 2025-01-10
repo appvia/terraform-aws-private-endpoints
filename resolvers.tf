@@ -4,7 +4,7 @@
 module "dns_security_group" {
   count   = local.enable_dns_security_group ? 1 : 0
   source  = "terraform-aws-modules/security-group/aws"
-  version = "5.2.0"
+  version = "5.3.0"
 
   name                = "dns-resolvers-${var.name}"
   description         = "Allow DNS traffic to the route53 resolvers"
