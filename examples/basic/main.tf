@@ -7,12 +7,10 @@
 ## Create a client network to test the endpoints
 module "spoke" {
   source  = "appvia/network/aws"
-  version = "0.3.0"
+  version = "0.4.0"
 
   availability_zones                    = 3
-  enable_ipam                           = true
   enable_route53_resolver_rules         = true
-  enable_transit_gateway                = true
   enable_transit_gateway_appliance_mode = true
   ipam_pool_id                          = var.ipam_pool_id
   name                                  = "spoke-dns"
@@ -22,7 +20,7 @@ module "spoke" {
   vpc_netmask                           = 22
 }
 
-## Provision the endpoints and resolvers 
+## Provision the endpoints and resolvers
 module "endpoints" {
   source = "../.."
 
@@ -73,7 +71,7 @@ module "endpoints" {
     name = "endpoints"
     # Number of availability zones to create subnets in
     private_netmask = 24
-    # The transit gateway to connect 
+    # The transit gateway to connect
     transit_gateway_id = var.transit_gateway_id
     # The cider range to use for the VPC
     vpc_cidr = "10.20.0.0/21"

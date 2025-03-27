@@ -4,15 +4,13 @@
 # to build your own root module that invokes this module
 #####################################################################################
 
-## Create a network for the endpoints to reuse 
+## Create a network for the endpoints to reuse
 module "network" {
   source  = "appvia/network/aws"
-  version = "0.3.0"
+  version = "0.4.0"
 
   availability_zones                    = 3
-  enable_ipam                           = true
   enable_route53_resolver_rules         = true
-  enable_transit_gateway                = true
   enable_transit_gateway_appliance_mode = true
   ipam_pool_id                          = var.ipam_pool_id
   name                                  = "endpoints"
@@ -22,7 +20,7 @@ module "network" {
   vpc_netmask                           = 22
 }
 
-## Provision the endpoints and resolvers 
+## Provision the endpoints and resolvers
 module "endpoints" {
   source = "../.."
 
@@ -57,13 +55,13 @@ module "endpoints" {
   }
 
   network = {
-    ## Reuse the network we created above 
+    ## Reuse the network we created above
     vpc_id = module.network.vpc_id
-    ## Reuse the private subnets we created above 
+    ## Reuse the private subnets we created above
     private_subnet_cidr_by_id = module.network.private_subnet_cidr_by_id
-    ## The transit_gateway_id to use for the network 
+    ## The transit_gateway_id to use for the network
     transit_gateway_id = var.transit_gateway_id
-    ## Do not create a new network 
+    ## Do not create a new network
     create = false
   }
 

@@ -1,15 +1,13 @@
 
-## Provision the network is required 
+## Provision the network is required
 module "vpc" {
   count   = local.enable_vpc_creation ? 1 : 0
   source  = "appvia/network/aws"
-  version = "0.3.4"
+  version = "0.4.0"
 
   availability_zones                     = var.network.availability_zones
   enable_default_route_table_association = var.network.enable_default_route_table_association
   enable_default_route_table_propagation = var.network.enable_default_route_table_propagation
-  enable_ipam                            = local.enable_ipam
-  enable_transit_gateway                 = true
   ipam_pool_id                           = var.network.ipam_pool_id
   name                                   = var.name
   private_subnet_netmask                 = var.network.private_netmask
@@ -45,7 +43,7 @@ resource "aws_vpc_endpoint" "this" {
   }
 }
 
-## Provision the security group for the private endpoints 
+## Provision the security group for the private endpoints
 resource "aws_security_group" "this" {
   description = "Security group for the private endpoints for the ${var.name} environment"
   name        = "${var.name}-default"
@@ -57,7 +55,7 @@ resource "aws_security_group" "this" {
   }
 }
 
-## Provision the security group rule to permit all internal traffic 
+## Provision the security group rule to permit all internal traffic
 resource "aws_vpc_security_group_ingress_rule" "allow_https_ingress" {
   cidr_ipv4         = "10.0.0.0/8"
   description       = "Allow all https traffic to the private endpoint for the ${var.name} environment"
@@ -68,7 +66,7 @@ resource "aws_vpc_security_group_ingress_rule" "allow_https_ingress" {
   to_port           = 443
 }
 
-## Provision the security group rules to allow all https egress traffic 
+## Provision the security group rules to allow all https egress traffic
 resource "aws_vpc_security_group_egress_rule" "allow_https_egress" {
   cidr_ipv4         = "10.0.0.0/8"
   description       = "Allow all https traffic from the private endpoints for the ${var.name} environment"
