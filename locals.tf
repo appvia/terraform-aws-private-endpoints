@@ -1,13 +1,11 @@
 
 locals {
-  ## Indicates if we should create a new VPC for the endpoints  
+  ## Indicates if we should create a new VPC for the endpoints
   enable_vpc_creation = var.network.create
-  ## Indicates if we should provision a outbound resolver 
+  ## Indicates if we should provision a outbound resolver
   enable_outbound_resolver = var.resolvers.outbound.create
-  ## Indicates if we should provision a security group for dns 
+  ## Indicates if we should provision a security group for dns
   enable_dns_security_group = local.enable_outbound_resolver
-  ## Indicates if we are uing ipam for the vpc creation 
-  enable_ipam = local.enable_vpc_creation && var.network.ipam_pool_id != "" ? true : false
 
   ## The private subnets to create resolvers on (either the VPC we created or the list provided)
   private_subnet_ids = local.enable_vpc_creation ? module.vpc[0].private_subnet_ids : keys(var.network.private_subnet_cidr_by_id)
@@ -28,7 +26,7 @@ locals {
   ## The vpc id, which is either the one we created or the one provided
   vpc_id = local.enable_vpc_creation ? module.vpc[0].vpc_id : var.network.vpc_id
 
-  ## The endpoints we are going to provision in this VPC 
+  ## The endpoints we are going to provision in this VPC
   endpoints = {
     for x in var.endpoints : x.service => {
       policy              = x.policy,
@@ -40,9 +38,9 @@ locals {
     }
   }
 
-  ## A of the domains to endpoint configuration 
+  ## A of the domains to endpoint configuration
   endpoints_rules = { for x in var.endpoints : format("%s.%s.amazonaws.com", x.service, var.region) => x }
 
-  ## The security group ids to use for the endpoints 
+  ## The security group ids to use for the endpoints
   security_group_ids = [aws_security_group.this.id]
 }
