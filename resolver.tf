@@ -8,9 +8,9 @@ locals {
 
   ## We need to create a map of subnet id to ip address of the resolver
   outbound_resolver_addresses = local.enable_vpc_creation && local.enable_outbound_resolver ? {
-    for k, v in module.vpc[0].private_subnet_cidr_by_id : k => cidrhost(v, var.resolvers.outbound.ip_address_offset)
+    for k, v in module.vpc[0].private_subnet_cidr_by_id : k => cidrhost(v, try(var.resolvers.outbound.ip_address_offset, 10))
     } : {
-    for k, v in var.network.private_subnet_cidr_by_id : k => cidrhost(v, var.resolvers.outbound.ip_address_offset)
+    for k, v in var.network.private_subnet_cidr_by_id : k => cidrhost(v, try(var.resolvers.outbound.ip_address_offset, 10))
   }
 
   ## The ip addresses which the outbound resolvers will be using
