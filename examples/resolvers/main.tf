@@ -21,7 +21,7 @@ locals {
 ## Create a client network to test the endpoints
 module "spoke" {
   source  = "appvia/network/aws"
-  version = "0.6.5"
+  version = "0.6.10"
 
   availability_zones                    = 3
   enable_route53_resolver_rules         = true
