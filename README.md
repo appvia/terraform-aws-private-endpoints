@@ -17,9 +17,80 @@
 </p>
 <em>The diagram above is a high level representation of the module and the resources it creates; note in this design we DO NOT create an inbound resolver, as its not technically required</em>
 
-## Description
+## Overview
 
-Using a AWS recommended pattern for sharing private endpoint services across multiple VPCs, interconnected via a transit gateway. The intent is to retain as much of the traffic directed to AWS services, private and off the internet. Used in combination with the [terraform-aws-connectivity](https://github.com/appvia/terraform-aws-connectivity).
+The Terraform AWS Private Endpoints module provides a comprehensive, enterprise-grade solution for implementing centralized private endpoint services across multiple VPCs using AWS PrivateLink and Transit Gateway connectivity. This module enables organizations to maintain private connectivity to AWS services, reduce internet traffic, improve security posture, and optimize network costs through centralized endpoint management and DNS resolution.
+
+## Purpose & Intent
+
+### **Problem Statement**
+
+Large enterprises face significant challenges when implementing private connectivity to AWS services across multiple VPCs and accounts:
+
+- **Internet Traffic Exposure**: AWS service calls traversing the public internet, creating security risks
+- **Cost Inefficiency**: Multiple VPCs creating duplicate private endpoints, increasing costs
+- **DNS Resolution Complexity**: Difficulty in routing DNS queries to private endpoints across VPCs
+- **Network Management Overhead**: Manual configuration of private endpoints and DNS resolution
+- **Security Gaps**: Inconsistent security policies and access controls across private endpoints
+- **Compliance Challenges**: Difficulty in maintaining private connectivity requirements
+- **Operational Complexity**: Lack of centralized management for private endpoint services
+
+### **Solution**
+
+This module provides a centralized, automated approach to private endpoint management that:
+
+- **Centralizes Private Connectivity**: Implements a shared VPC with private endpoints for common AWS services
+- **Automates DNS Resolution**: Provides Route 53 resolver rules for automatic DNS routing to private endpoints
+- **Enables Cross-VPC Sharing**: Uses AWS RAM to share private endpoints across organizational units
+- **Reduces Internet Traffic**: Keeps AWS service calls within the private network infrastructure
+- **Provides Security Controls**: Implements consistent security groups and access policies
+- **Supports Compliance**: Ensures private connectivity requirements are met across the organization
+- **Reduces Operational Overhead**: Automates private endpoint provisioning and DNS configuration
+
+## Key Features
+
+### 🔗 **Comprehensive Private Endpoint Management**
+
+- **Multi-Service Support**: Support for all AWS services that support PrivateLink (S3, EC2, SSM, KMS, Secrets Manager, etc.)
+- **Flexible Endpoint Types**: Support for both Interface and Gateway endpoint types
+- **Custom Security Groups**: Configurable security groups with fine-grained access controls
+- **IAM Policy Integration**: Support for custom IAM policies on private endpoints
+
+### 🌐 **Advanced DNS Resolution**
+
+- **Route 53 Integration**: Automatic creation of private hosted zones for each service
+- **Resolver Rules**: Automated DNS resolution rules for cross-VPC endpoint access
+- **Outbound Resolvers**: Optional outbound DNS resolvers for enhanced DNS management
+- **Multi-Protocol Support**: Support for Do53 and DoH protocols
+
+### 🏗️ **Enterprise Network Architecture**
+
+- **Transit Gateway Integration**: Seamless integration with AWS Transit Gateway for cross-VPC connectivity
+- **VPC Flexibility**: Support for creating new VPCs or reusing existing network infrastructure
+- **Multi-AZ Deployment**: High availability across multiple availability zones
+- **IPAM Integration**: Support for AWS IPAM for IP address management
+
+### 📊 **Resource Sharing & Access Control**
+
+- **AWS RAM Integration**: Share private endpoints across organizational units using AWS Resource Access Manager
+- **Principal Management**: Flexible principal association for cross-account access
+- **Access Auditing**: Comprehensive logging and monitoring of endpoint access
+- **Security Controls**: Consistent security policies across all shared endpoints
+
+### 🛡️ **Security & Compliance**
+
+- **Private Connectivity**: All traffic remains within AWS private network infrastructure
+- **Security Group Management**: Automated security group creation with best practices
+- **Access Control**: Fine-grained control over endpoint access and permissions
+- **Compliance Support**: Built-in support for regulatory and compliance requirements
+
+### ⚙️ **Operational Excellence**
+
+- **Terraform State Management**: Full Terraform state management for all resources
+- **Resource Tagging**: Consistent tagging across all created resources
+- **Output Management**: Comprehensive outputs for integration with other modules
+- **Dependency Management**: Proper resource dependencies and lifecycle management
+- **Validation**: Built-in input validation for security and compliance
 
 ## How it works
 
@@ -32,6 +103,84 @@ Using a AWS recommended pattern for sharing private endpoint services across mul
 - These rules intercept the DNS queries and route them to the shared vpc resolvers, returning the private endpoint ip address located within them.
 - Traffic from the spoke to the endpoints once resolved, is routed via the transit gateway.
 
+## Architecture
+
+### **Private Endpoint Architecture**
+
+```mermaid
+graph TB
+    subgraph "Shared VPC (Private Endpoints)"
+        A[VPC Endpoints]
+        B[Route 53 Private Zones]
+        C[Security Groups]
+        D[Outbound Resolver]
+    end
+    
+    subgraph "Transit Gateway"
+        E[TGW Attachment]
+    end
+    
+    subgraph "Spoke VPCs"
+        F[VPC 1]
+        G[VPC 2]
+        H[VPC N]
+    end
+    
+    subgraph "AWS Services"
+        I[S3]
+        J[EC2]
+        K[SSM]
+        L[KMS]
+        M[Secrets Manager]
+    end
+    
+    A --> I
+    A --> J
+    A --> K
+    A --> L
+    A --> M
+    A --> E
+    E --> F
+    E --> G
+    E --> H
+    D --> B
+    B --> A
+```
+
+### **DNS Resolution Flow**
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant DNS as Route 53 Resolver
+    participant Resolver as Outbound Resolver
+    participant Zone as Private Hosted Zone
+    participant Endpoint as VPC Endpoint
+    participant Service as AWS Service
+    
+    App->>DNS: DNS Query (s3.amazonaws.com)
+    DNS->>Resolver: Forward to Outbound Resolver
+    Resolver->>Zone: Query Private Hosted Zone
+    Zone->>Resolver: Return Private Endpoint IP
+    Resolver->>DNS: Return Private Endpoint IP
+    DNS->>App: Return Private Endpoint IP
+    App->>Endpoint: Connect to Private Endpoint
+    Endpoint->>Service: Forward to AWS Service
+```
+
+### **Supported AWS Services**
+
+| Service | Endpoint Type | Use Cases |
+|---------|---------------|-----------|
+| **S3** | Gateway | Object storage access |
+| **EC2** | Interface | EC2 API calls |
+| **SSM** | Interface | Systems Manager |
+| **SSM Messages** | Interface | SSM messaging |
+| **KMS** | Interface | Key management |
+| **Secrets Manager** | Interface | Secret management |
+| **CloudWatch Logs** | Interface | Log aggregation |
+| **DynamoDB** | Gateway | Database access |
+
 ## AWS References
 
 - [AWS PrivateLink](https://docs.aws.amazon.com/privatelink/latest/userguide/what-is-privatelink.html)
@@ -39,13 +188,22 @@ Using a AWS recommended pattern for sharing private endpoint services across mul
 
 ## Usage
 
-```hcl
-## Provision the endpoints and resolvers
-module "endpoints" {
-  source = "../.."
+### **Basic Usage - Complete Infrastructure**
 
-  name = "endpoints"
-  tags = var.tags
+```hcl
+module "private_endpoints" {
+  source = "appvia/private-endpoints/aws"
+  version = "0.1.0"
+
+  name   = "shared-endpoints"
+  region = "us-west-2"
+  tags = {
+    Environment = "production"
+    Purpose     = "private-connectivity"
+    Owner       = "platform-team"
+  }
+
+  # Define private endpoints for AWS services
   endpoints = {
     "s3" = {
       service = "s3"
@@ -73,26 +231,310 @@ module "endpoints" {
     }
   }
 
+  # Share endpoints with organizational units
   sharing = {
-    principals = values(var.ram_principals)
+    principals = [
+      "arn:aws:organizations::111111111111:organization/o-1234567890",
+      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-production"
+    ]
+  }
+
+  # Configure outbound resolver
+  resolvers = {
+    outbound = {
+      create            = true
+      ip_address_offset = 12
+      protocols         = ["Do53", "DoH"]
+    }
+  }
+
+  # Network configuration
+  network = {
+    name = "shared-endpoints"
+    availability_zones = 3
+    private_netmask    = 24
+    transit_gateway_id = "tgw-1234567890abcdef0"
+    vpc_cidr          = "10.20.0.0/21"
+  }
+}
+```
+
+### **Advanced Usage - Custom Security and Policies**
+
+```hcl
+module "private_endpoints" {
+  source = "appvia/private-endpoints/aws"
+  version = "0.1.0"
+
+  name   = "secure-endpoints"
+  region = "us-west-2"
+  tags = {
+    Environment     = "production"
+    Purpose         = "secure-connectivity"
+    BusinessUnit    = "security"
+    DataClassification = "confidential"
+  }
+
+  # Advanced endpoint configuration
+  endpoints = {
+    "s3" = {
+      service = "s3"
+      service_type = "Gateway"
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Effect = "Allow"
+            Principal = "*"
+            Action = "s3:GetObject"
+            Resource = "arn:aws:s3:::secure-bucket/*"
+          }
+        ]
+      })
+    },
+    "kms" = {
+      service = "kms"
+      service_type = "Interface"
+      security_group_ids = ["sg-custom-kms-12345"]
+    },
+    "secretsmanager" = {
+      service = "secretsmanager"
+      service_type = "Interface"
+      security_group_ids = ["sg-custom-secrets-67890"]
+    }
+  }
+
+  # Share with specific principals
+  sharing = {
+    principals = [
+      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-production",
+      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-staging"
+    ]
+  }
+
+  # Configure resolver rules sharing
+  resolver_rules = {
+    principals = [
+      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-production"
+    ]
+    share_prefix = "private-endpoints"
+  }
+
+  # Advanced resolver configuration
+  resolvers = {
+    outbound = {
+      create            = true
+      ip_address_offset = 10
+      protocols         = ["Do53", "DoH"]
+    }
+  }
+
+  # Network configuration with IPAM
+  network = {
+    name = "secure-endpoints"
+    availability_zones = 3
+    private_netmask    = 24
+    transit_gateway_id = "tgw-1234567890abcdef0"
+    vpc_cidr          = "10.20.0.0/21"
+    ipam_pool_id      = "ipam-pool-1234567890abcdef0"
+    vpc_netmask       = 21
+  }
+}
+```
+
+### **Reuse Existing Network**
+
+```hcl
+module "private_endpoints" {
+  source = "appvia/private-endpoints/aws"
+  version = "0.1.0"
+
+  name   = "endpoints-existing-vpc"
+  region = "us-west-2"
+  tags = {
+    Environment = "production"
+    Purpose     = "private-connectivity"
+  }
+
+  endpoints = {
+    "ec2" = {
+      service = "ec2"
+    },
+    "ssm" = {
+      service = "ssm"
+    },
+    "kms" = {
+      service = "kms"
+    }
+  }
+
+  sharing = {
+    principals = [
+      "arn:aws:organizations::111111111111:organization/o-1234567890"
+    ]
   }
 
   resolvers = {
     outbound = {
       create            = true
+      ip_address_offset = 10
+    }
+  }
+
+  # Reuse existing network
+  network = {
+    vpc_cidr = "10.10.0.0/16"
+    vpc_id   = "vpc-1234567890abcdef0"
+    private_subnet_cidr_by_id = {
+      "subnet-1234567890abcdef0" = "10.10.1.0/24"
+      "subnet-0987654321fedcba0" = "10.10.2.0/24"
+    }
+    create = false
+  }
+}
+```
+
+### **Use Cases**
+
+#### **1. Enterprise Centralized Connectivity**
+
+```hcl
+# For large enterprises with centralized networking
+module "enterprise_endpoints" {
+  source = "appvia/private-endpoints/aws"
+  
+  name   = "enterprise-endpoints"
+  region = "us-west-2"
+  
+  tags = {
+    Environment = "production"
+    Purpose     = "enterprise-connectivity"
+    BusinessUnit = "infrastructure"
+  }
+
+  endpoints = {
+    "s3" = { service = "s3" }
+    "ec2" = { service = "ec2" }
+    "ssm" = { service = "ssm" }
+    "kms" = { service = "kms" }
+    "secretsmanager" = { service = "secretsmanager" }
+    "logs" = { service = "logs" }
+  }
+
+  sharing = {
+    principals = [
+      "arn:aws:organizations::111111111111:organization/o-1234567890"
+    ]
+  }
+
+  resolvers = {
+    outbound = {
+      create = true
       ip_address_offset = 12
     }
   }
 
   network = {
-    # Name of the network to create
-    name = "endpoints"
-    # Number of availability zones to create subnets in
+    name = "enterprise-endpoints"
+    availability_zones = 3
     private_netmask = 24
-    # The transit gateway to connect
-    transit_gateway_id = var.transit_gateway_id
-    # The cider range to use for the VPC
-    vpc_cidr = "10.20.0.0/21"
+    transit_gateway_id = var.enterprise_transit_gateway_id
+    vpc_cidr = "10.100.0.0/21"
+  }
+}
+```
+
+#### **2. Development Environment**
+
+```hcl
+# For development and testing environments
+module "dev_endpoints" {
+  source = "appvia/private-endpoints/aws"
+  
+  name   = "dev-endpoints"
+  region = "us-west-2"
+  
+  tags = {
+    Environment = "development"
+    Purpose     = "dev-connectivity"
+  }
+
+  endpoints = {
+    "s3" = { service = "s3" }
+    "ec2" = { service = "ec2" }
+    "ssm" = { service = "ssm" }
+  }
+
+  sharing = {
+    principals = [
+      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-development"
+    ]
+  }
+
+  network = {
+    name = "dev-endpoints"
+    availability_zones = 2
+    private_netmask = 24
+    transit_gateway_id = var.dev_transit_gateway_id
+    vpc_cidr = "10.200.0.0/21"
+  }
+}
+```
+
+#### **3. Compliance-Focused Setup**
+
+```hcl
+# For organizations with strict compliance requirements
+module "compliance_endpoints" {
+  source = "appvia/private-endpoints/aws"
+  
+  name   = "compliance-endpoints"
+  region = "us-west-2"
+  
+  tags = {
+    Environment = "production"
+    Purpose     = "compliance-connectivity"
+    Compliance  = "required"
+    DataClassification = "confidential"
+  }
+
+  endpoints = {
+    "kms" = {
+      service = "kms"
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Effect = "Allow"
+            Principal = "*"
+            Action = "kms:*"
+            Resource = "*"
+            Condition = {
+              StringEquals = {
+                "kms:ViaService" = "kms.us-west-2.amazonaws.com"
+              }
+            }
+          }
+        ]
+      })
+    },
+    "secretsmanager" = {
+      service = "secretsmanager"
+    }
+  }
+
+  sharing = {
+    principals = [
+      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-compliance"
+    ]
+  }
+
+  network = {
+    name = "compliance-endpoints"
+    availability_zones = 3
+    private_netmask = 24
+    transit_gateway_id = var.compliance_transit_gateway_id
+    vpc_cidr = "10.50.0.0/21"
   }
 }
 ```
@@ -147,12 +589,133 @@ module "endpoints" {
 }
 ```
 
+## Monitoring & Troubleshooting
+
+### **CloudWatch Logs and Metrics**
+
+The module creates comprehensive monitoring capabilities:
+
+```bash
+# View VPC endpoints
+aws ec2 describe-vpc-endpoints --filters "Name=tag:Name,Values=*endpoints*"
+
+# Check Route 53 private hosted zones
+aws route53 list-hosted-zones-by-vpc --vpc-id vpc-1234567890abcdef0
+
+# Monitor resolver endpoints
+aws route53resolver list-resolver-endpoints
+
+# Check resolver rules
+aws route53resolver list-resolver-rules
+
+# View RAM resource shares
+aws ram get-resource-shares --resource-owner SELF
+```
+
+### **Key Monitoring Metrics**
+
+| Service | Metric | Description | Use Case |
+|---------|--------|-------------|----------|
+| VPC Endpoints | `DataProcessed` | Data processed through endpoints | Monitor endpoint usage |
+| VPC Endpoints | `PacketsDropped` | Packets dropped by endpoints | Monitor endpoint health |
+| Route 53 | `DNSQueries` | DNS queries to private hosted zones | Monitor DNS resolution |
+| Route 53 Resolver | `ResolverQueries` | Resolver query volume | Monitor resolver usage |
+| RAM | `ResourceShares` | Number of active resource shares | Monitor sharing activity |
+
+### **Common Issues & Solutions**
+
+#### **1. VPC Endpoint Creation Failures**
+
+```
+Error: Failed to create VPC endpoint
+```
+
+**Solutions**:
+
+- Verify service name is correct and supported
+- Check VPC and subnet configuration
+- Ensure security groups allow HTTPS traffic
+- Verify IAM permissions for endpoint creation
+
+#### **2. DNS Resolution Issues**
+
+```
+Error: DNS queries not resolving to private endpoints
+```
+
+**Solutions**:
+
+- Check Route 53 private hosted zone configuration
+- Verify resolver rules are properly configured
+- Ensure outbound resolver is accessible
+- Check VPC DNS settings
+
+#### **3. Cross-VPC Connectivity Issues**
+
+```
+Error: Cannot reach private endpoints from spoke VPCs
+```
+
+**Solutions**:
+
+- Verify Transit Gateway configuration
+- Check route table associations
+- Ensure security groups allow traffic
+- Verify RAM resource sharing configuration
+
+#### **4. RAM Sharing Issues**
+
+```
+Error: Resource sharing failed
+```
+
+**Solutions**:
+
+- Verify principal ARNs are correct
+- Check RAM permissions
+- Ensure principals are valid AWS accounts or OUs
+- Verify resource share configuration
+
+### **Operational Best Practices**
+
+1. **Network Planning**: Plan VPC CIDR ranges to avoid conflicts
+2. **Security Groups**: Use least privilege principles for security group rules
+3. **Monitoring**: Implement comprehensive monitoring and alerting
+4. **Documentation**: Maintain clear documentation of endpoint configurations
+5. **Testing**: Regularly test endpoint connectivity and DNS resolution
+
+## Requirements
+
+### **Prerequisites**
+
+- AWS VPC with private subnets
+- Transit Gateway for cross-VPC connectivity
+- Appropriate IAM permissions for VPC endpoints and Route 53
+- AWS RAM for resource sharing (if using sharing features)
+
+### **AWS Services Used**
+
+- AWS VPC Endpoints (PrivateLink)
+- Amazon Route 53 (Private Hosted Zones)
+- AWS Route 53 Resolver
+- AWS Resource Access Manager (RAM)
+- AWS Transit Gateway
+- AWS VPC
+
+### **Permissions Required**
+
+- VPC endpoint management
+- Route 53 private hosted zone management
+- Route 53 resolver management
+- RAM resource sharing (if using sharing features)
+- Transit Gateway attachment permissions
+
 ## Update Documentation
 
 The `terraform-docs` utility is used to generate this README. Follow the below steps to update:
 
 1. Make changes to the `.terraform-docs.yml` file
-2. Fetch the `terraform-docs` binary (https://terraform-docs.io/user-guide/installation/)
+2. Fetch the `terraform-docs` binary (<https://terraform-docs.io/user-guide/installation/>)
 3. Run `terraform-docs markdown table --output-file ${PWD}/README.md --output-mode inject .`
 
 <!-- BEGIN_TF_DOCS -->
