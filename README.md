@@ -190,6 +190,8 @@ sequenceDiagram
 
 ### **Basic Usage - Complete Infrastructure**
 
+This example demonstrates how to create a complete private endpoint infrastructure from scratch. It provisions a new VPC with private subnets, creates private endpoints for common AWS services, sets up DNS resolution with Route 53 private hosted zones, and shares the endpoints across organizational units using AWS RAM. This is ideal for organizations setting up centralized private connectivity for the first time.
+
 ```hcl
 module "private_endpoints" {
   source = "appvia/private-endpoints/aws"
@@ -260,6 +262,8 @@ module "private_endpoints" {
 ```
 
 ### **Advanced Usage - Custom Security and Policies**
+
+This example shows how to implement advanced security controls and custom IAM policies for private endpoints. It demonstrates custom security groups for specific services, IAM policies for fine-grained access control, resolver rules sharing, and IPAM integration for IP address management. This configuration is suitable for organizations with strict security requirements and compliance needs.
 
 ```hcl
 module "private_endpoints" {
@@ -344,6 +348,8 @@ module "private_endpoints" {
 
 ### **Reuse Existing Network**
 
+This example demonstrates how to integrate private endpoints into an existing VPC infrastructure. Instead of creating a new VPC, it reuses an existing VPC and subnets, making it ideal for organizations that already have established network infrastructure but want to add centralized private endpoint services. This approach minimizes changes to existing networking while adding private connectivity capabilities.
+
 ```hcl
 module "private_endpoints" {
   source = "appvia/private-endpoints/aws"
@@ -398,6 +404,8 @@ module "private_endpoints" {
 
 #### **1. Enterprise Centralized Connectivity**
 
+This use case demonstrates a comprehensive enterprise setup for large organizations with centralized networking requirements. It creates a full suite of private endpoints for core AWS services and shares them across the entire organization. This configuration is designed for enterprises that need to maintain private connectivity to AWS services while providing centralized management and cost optimization through shared infrastructure.
+
 ```hcl
 # For large enterprises with centralized networking
 module "enterprise_endpoints" {
@@ -446,6 +454,8 @@ module "enterprise_endpoints" {
 
 #### **2. Development Environment**
 
+This use case shows a simplified setup for development and testing environments. It creates a minimal set of private endpoints for essential services and shares them only with development organizational units. This configuration balances private connectivity needs with cost efficiency, making it ideal for development teams that need secure access to AWS services without the complexity of a full enterprise setup.
+
 ```hcl
 # For development and testing environments
 module "dev_endpoints" {
@@ -482,6 +492,8 @@ module "dev_endpoints" {
 ```
 
 #### **3. Compliance-Focused Setup**
+
+This use case demonstrates a security-focused configuration designed for organizations with strict compliance requirements. It implements custom IAM policies for KMS access, restricts sharing to compliance-specific organizational units, and uses enhanced tagging for audit trails. This configuration is ideal for organizations in regulated industries that need to maintain strict control over data access and demonstrate compliance with security standards.
 
 ```hcl
 # For organizations with strict compliance requirements
@@ -753,7 +765,5 @@ The `terraform-docs` utility is used to generate this README. Follow the below s
 | <a name="output_vpc_attributes"></a> [vpc\_attributes](#output\_vpc\_attributes) | The attributes of the vpc we created |
 | <a name="output_vpc_id"></a> [vpc\_id](#output\_vpc\_id) | The id of the vpc we used to provision the endpoints |
 <!-- END_TF_DOCS -->
-
-```
 
 ```
