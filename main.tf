@@ -12,7 +12,7 @@ locals {
 module "vpc" {
   count   = local.enable_vpc_creation ? 1 : 0
   source  = "appvia/network/aws"
-  version = "0.6.13"
+  version = "0.6.14"
 
   availability_zones                     = var.network.availability_zones
   enable_default_route_table_association = var.network.enable_default_route_table_association
