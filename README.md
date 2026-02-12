@@ -11,723 +11,422 @@
 
 # Terraform AWS Private Endpoints
 
-<p align="center">
-  </br>
-  <img src="https://github.com/appvia/terraform-aws-private-endpoints/blob/main/docs/private-endpoints.png?raw=true" alt="AWS Private Endpoints"/>
-</p>
-<em>The diagram above is a high level representation of the module and the resources it creates; note in this design we DO NOT create an inbound resolver, as its not technically required</em>
+## Introduction
 
-## Overview
+In multi-account AWS environments, organizations face a critical challenge: maintaining private connectivity to AWS services across dozens or hundreds of VPCs while avoiding the cost and operational overhead of deploying duplicate VPC endpoints in every network. This module solves this problem by implementing a centralized VPC endpoint architecture using AWS PrivateLink, Transit Gateway, and Route 53 Resolver.
 
-The Terraform AWS Private Endpoints module provides a comprehensive, enterprise-grade solution for implementing centralized private endpoint services across multiple VPCs using AWS PrivateLink and Transit Gateway connectivity. This module enables organizations to maintain private connectivity to AWS services, reduce internet traffic, improve security posture, and optimize network costs through centralized endpoint management and DNS resolution.
+The core issue addressed is **VPC endpoint sprawl**—when each application VPC creates its own private endpoints to services like S3, EC2, KMS, and Secrets Manager, organizations face escalating costs (typically $7-10/endpoint/month × services × VPCs) and complex DNS management across segregated networks. This module centralizes private endpoint provisioning in a single shared VPC, enabling spoke VPCs to consume these endpoints via Transit Gateway routing and automated DNS resolution.
 
-## Purpose & Intent
+### Architecture Overview
 
-### **Problem Statement**
+The module orchestrates three key components working together:
 
-Large enterprises face significant challenges when implementing private connectivity to AWS services across multiple VPCs and accounts:
+1. **Shared Endpoint VPC**: Creates or reuses a VPC attached to your Transit Gateway where all VPC endpoints reside. Supports both Interface endpoints (ENI-based for most services) and Gateway endpoints (route-based for S3/DynamoDB)
 
-- **Internet Traffic Exposure**: AWS service calls traversing the public internet, creating security risks
-- **Cost Inefficiency**: Multiple VPCs creating duplicate private endpoints, increasing costs
-- **DNS Resolution Complexity**: Difficulty in routing DNS queries to private endpoints across VPCs
-- **Network Management Overhead**: Manual configuration of private endpoints and DNS resolution
-- **Security Gaps**: Inconsistent security policies and access controls across private endpoints
-- **Compliance Challenges**: Difficulty in maintaining private connectivity requirements
-- **Operational Complexity**: Lack of centralized management for private endpoint services
+2. **Route 53 Private Hosted Zones & Resolver Rules**: Automatically creates private hosted zones for each service (e.g., `ec2.us-east-1.amazonaws.com`) and resolver rules that spoke VPCs associate with to route DNS queries to the shared VPC resolver
 
-### **Solution**
+3. **AWS Resource Access Manager (RAM) Sharing**: Distributes resolver rules to organizational units or specific accounts, allowing spoke VPCs to selectively adopt endpoint resolution without manual configuration
 
-This module provides a centralized, automated approach to private endpoint management that:
+Traffic flow: Application in spoke VPC → DNS query intercepted by resolver rule → Resolved to shared VPC endpoint IP → Traffic routed via Transit Gateway → VPC endpoint forwards to AWS service.
 
-- **Centralizes Private Connectivity**: Implements a shared VPC with private endpoints for common AWS services
-- **Automates DNS Resolution**: Provides Route 53 resolver rules for automatic DNS routing to private endpoints
-- **Enables Cross-VPC Sharing**: Uses AWS RAM to share private endpoints across organizational units
-- **Reduces Internet Traffic**: Keeps AWS service calls within the private network infrastructure
-- **Provides Security Controls**: Implements consistent security groups and access policies
-- **Supports Compliance**: Ensures private connectivity requirements are met across the organization
-- **Reduces Operational Overhead**: Automates private endpoint provisioning and DNS configuration
+### Cloud Context
 
-## Key Features
+This module is designed for AWS Organizations with Transit Gateway-based hub-and-spoke network architectures. It assumes:
+- An existing Transit Gateway with proper routing configured between the shared VPC and spoke VPCs
+- Organizational units or account structures for RAM sharing
+- VPCs using the AWS-provided DNS resolver (VPC+2 address)
 
-### 🔗 **Comprehensive Private Endpoint Management**
+The module is particularly valuable in AWS Landing Zone environments, Control Tower setups, or any multi-account strategy where centralized infrastructure services reduce duplication.
 
-- **Multi-Service Support**: Support for all AWS services that support PrivateLink (S3, EC2, SSM, KMS, Secrets Manager, etc.)
-- **Flexible Endpoint Types**: Support for both Interface and Gateway endpoint types
-- **Custom Security Groups**: Configurable security groups with fine-grained access controls
-- **IAM Policy Integration**: Support for custom IAM policies on private endpoints
+## Features
 
-### 🌐 **Advanced DNS Resolution**
+### Security by Default
 
-- **Route 53 Integration**: Automatic creation of private hosted zones for each service
-- **Resolver Rules**: Automated DNS resolution rules for cross-VPC endpoint access
-- **Outbound Resolvers**: Optional outbound DNS resolvers for enhanced DNS management
-- **Multi-Protocol Support**: Support for Do53 and DoH protocols
+- **Private Network Isolation**: All AWS service traffic remains within the AWS private network—no internet traversal, reducing attack surface and compliance risk
+- **Automated Security Groups**: Creates ingress/egress rules permitting HTTPS (port 443) from RFC1918 space (10.0.0.0/8 by default), with support for custom security groups per endpoint
+- **IAM Policy Enforcement**: Optional IAM policies on VPC endpoints to restrict which principals can invoke API operations through the endpoint
+- **Least-Privilege RAM Sharing**: Resolver rules shared only to specified organizational units or accounts, preventing unauthorized endpoint consumption
 
-### 🏗️ **Enterprise Network Architecture**
+### Flexibility
 
-- **Transit Gateway Integration**: Seamless integration with AWS Transit Gateway for cross-VPC connectivity
-- **VPC Flexibility**: Support for creating new VPCs or reusing existing network infrastructure
-- **Multi-AZ Deployment**: High availability across multiple availability zones
-- **IPAM Integration**: Support for AWS IPAM for IP address management
+- **Interface and Gateway Endpoint Support**: Handles both ENI-based Interface endpoints (most services) and route-table-based Gateway endpoints (S3, DynamoDB)
+- **Bring Your Own Network**: Supports creating a new VPC or reusing existing VPC infrastructure by specifying `network.vpc_id` and subnet mappings
+- **Selective Endpoint Provisioning**: Define exactly which AWS services need endpoints—deploy only EC2/SSM for management infrastructure or add KMS/Secrets Manager for application needs
+- **Outbound Resolver Optional**: Choose whether to create an outbound Route 53 Resolver endpoint (required for DNS resolution from spokes) or reference an existing resolver
+- **IPAM Integration**: Compatible with AWS IPAM for automated subnet allocation in dynamically scaled environments
 
-### 📊 **Resource Sharing & Access Control**
+### Operational Excellence
 
-- **AWS RAM Integration**: Share private endpoints across organizational units using AWS Resource Access Manager
-- **Principal Management**: Flexible principal association for cross-account access
-- **Access Auditing**: Comprehensive logging and monitoring of endpoint access
-- **Security Controls**: Consistent security policies across all shared endpoints
+- **Multi-AZ High Availability**: VPC endpoints and resolvers automatically distributed across availability zones (configurable, default: 2 AZs)
+- **Transit Gateway Auto-Attachment**: Automatically creates TGW attachment to the shared VPC with configurable route table association/propagation
+- **Comprehensive Outputs**: Exports endpoint IDs, hosted zone IDs, resolver IPs, and RAM share ARNs for integration with downstream modules
+- **Idempotent Resolver Rule Sharing**: Safely share resolver rules with additional OUs or accounts without disrupting existing associations
+- **Lifecycle Management**: Proper Terraform dependency chains ensure ordered resource creation (VPC → endpoints → hosted zones → resolver rules → RAM shares)
 
-### 🛡️ **Security & Compliance**
+### Compliance
 
-- **Private Connectivity**: All traffic remains within AWS private network infrastructure
-- **Security Group Management**: Automated security group creation with best practices
-- **Access Control**: Fine-grained control over endpoint access and permissions
-- **Compliance Support**: Built-in support for regulatory and compliance requirements
+- **PCI-DSS Alignment**: Supports requirement to keep cardholder data environments isolated from public internet by routing API calls through private endpoints
+- **HIPAA Compliance**: Ensures PHI-related API calls (e.g., to S3 buckets with health data) never traverse public networks
+- **AWS Well-Architected**: Implements Security Pillar best practices by encrypting data in transit and reducing public exposure
+- **Audit-Ready DNS Logs**: Route 53 Resolver query logging can be enabled to track which workloads are accessing which services via private endpoints
 
-### ⚙️ **Operational Excellence**
+## Usage Examples
 
-- **Terraform State Management**: Full Terraform state management for all resources
-- **Resource Tagging**: Consistent tagging across all created resources
-- **Output Management**: Comprehensive outputs for integration with other modules
-- **Dependency Management**: Proper resource dependencies and lifecycle management
-- **Validation**: Built-in input validation for security and compliance
+### The "Golden Path" (Simple)
 
-## How it works
-
-- A shared vpc called `var.name` is created and attached to the transit gateway. Note, this module does not perform any actions on the transit gateway, it is assumed the correct settings to enable connectivity between the `var.name` vpc and the spokes is in place.
-- Inside the shared vpc the private endpoints are created, one for each service defined in `var.endpoints`. The default security groups permits all https traffic from `10.0.0.0/8` to ingress.
-- Optionally, depending on the configuration of the module, a outbound resolver is created. The outbound resolver is used to resolve the AWS services, against the default VPC resolver (VPC+2 ip)
-- Route53 resolver rules are created for each of the shared private endpoints, allowing the consumer to pick and choose which endpoints they want to resolve to the shared vpc.
-- The endpoints are shared using AWS RAM to the all the principals defined in the `var.sharing.principals` list e.g. a collection of organizational units.
-- The spoke vpc's are responsible for associating the resolver rules with their vpc.
-- These rules intercept the DNS queries and route them to the shared vpc resolvers, returning the private endpoint ip address located within them.
-- Traffic from the spoke to the endpoints once resolved, is routed via the transit gateway.
-
-## Architecture
-
-### **Private Endpoint Architecture**
-
-```mermaid
-graph TB
-    subgraph "Shared VPC (Private Endpoints)"
-        A[VPC Endpoints]
-        B[Route 53 Private Zones]
-        C[Security Groups]
-        D[Outbound Resolver]
-    end
-    
-    subgraph "Transit Gateway"
-        E[TGW Attachment]
-    end
-    
-    subgraph "Spoke VPCs"
-        F[VPC 1]
-        G[VPC 2]
-        H[VPC N]
-    end
-    
-    subgraph "AWS Services"
-        I[S3]
-        J[EC2]
-        K[SSM]
-        L[KMS]
-        M[Secrets Manager]
-    end
-    
-    A --> I
-    A --> J
-    A --> K
-    A --> L
-    A --> M
-    A --> E
-    E --> F
-    E --> G
-    E --> H
-    D --> B
-    B --> A
-```
-
-### **DNS Resolution Flow**
-
-```mermaid
-sequenceDiagram
-    participant App as Application
-    participant DNS as Route 53 Resolver
-    participant Resolver as Outbound Resolver
-    participant Zone as Private Hosted Zone
-    participant Endpoint as VPC Endpoint
-    participant Service as AWS Service
-    
-    App->>DNS: DNS Query (s3.amazonaws.com)
-    DNS->>Resolver: Forward to Outbound Resolver
-    Resolver->>Zone: Query Private Hosted Zone
-    Zone->>Resolver: Return Private Endpoint IP
-    Resolver->>DNS: Return Private Endpoint IP
-    DNS->>App: Return Private Endpoint IP
-    App->>Endpoint: Connect to Private Endpoint
-    Endpoint->>Service: Forward to AWS Service
-```
-
-### **Supported AWS Services**
-
-| Service | Endpoint Type | Use Cases |
-|---------|---------------|-----------|
-| **S3** | Gateway | Object storage access |
-| **EC2** | Interface | EC2 API calls |
-| **SSM** | Interface | Systems Manager |
-| **SSM Messages** | Interface | SSM messaging |
-| **KMS** | Interface | Key management |
-| **Secrets Manager** | Interface | Secret management |
-| **CloudWatch Logs** | Interface | Log aggregation |
-| **DynamoDB** | Gateway | Database access |
-
-## AWS References
-
-- [AWS PrivateLink](https://docs.aws.amazon.com/privatelink/latest/userguide/what-is-privatelink.html)
-- [Shared Private Endpoints](https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/privately-access-a-central-aws-service-endpoint-from-multiple-vpcs.html)
-
-## Usage
-
-### **Basic Usage - Complete Infrastructure**
-
-This example demonstrates how to create a complete private endpoint infrastructure from scratch. It provisions a new VPC with private subnets, creates private endpoints for common AWS services, sets up DNS resolution with Route 53 private hosted zones, and shares the endpoints across organizational units using AWS RAM. This is ideal for organizations setting up centralized private connectivity for the first time.
+The most common deployment pattern—create a new shared VPC with standard endpoints, share across the organization:
 
 ```hcl
 module "private_endpoints" {
-  source = "appvia/private-endpoints/aws"
-  version = "0.1.0"
+  source  = "appvia/private-endpoints/aws"
+  version = "~> 0.1"
 
   name   = "shared-endpoints"
-  region = "us-west-2"
+  region = "us-east-1"
+  
   tags = {
     Environment = "production"
-    Purpose     = "private-connectivity"
     Owner       = "platform-team"
+    ManagedBy   = "terraform"
   }
 
-  # Define private endpoints for AWS services
+  # Standard AWS service endpoints for EC2 management
   endpoints = {
-    "s3" = {
-      service = "s3"
-    },
-    "ec2" = {
+    ec2 = {
       service = "ec2"
-    },
-    "ec2messages" = {
+    }
+    ec2messages = {
       service = "ec2messages"
-    },
-    "ssm" = {
+    }
+    ssm = {
       service = "ssm"
-    },
-    "ssmmessages" = {
+    }
+    ssmmessages = {
       service = "ssmmessages"
-    },
-    "logs" = {
+    }
+    logs = {
       service = "logs"
-    },
-    "kms" = {
-      service = "kms"
-    },
-    "secretsmanager" = {
-      service = "secretsmanager"
     }
   }
 
-  # Share endpoints with organizational units
+  # Share resolver rules organization-wide
   sharing = {
     principals = [
-      "arn:aws:organizations::111111111111:organization/o-1234567890",
-      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-production"
+      "arn:aws:organizations::123456789012:organization/o-abc123"
     ]
   }
 
-  # Configure outbound resolver
+  # Create outbound resolver for DNS resolution
   resolvers = {
     outbound = {
       create            = true
-      ip_address_offset = 12
-      protocols         = ["Do53", "DoH"]
+      ip_address_offset = 10
     }
   }
 
-  # Network configuration
+  # Create new VPC with Transit Gateway attachment
   network = {
-    name = "shared-endpoints"
+    vpc_cidr           = "10.100.0.0/21"
     availability_zones = 3
     private_netmask    = 24
-    transit_gateway_id = "tgw-1234567890abcdef0"
-    vpc_cidr          = "10.20.0.0/21"
+    transit_gateway_id = "tgw-abc123def456"
   }
+}
+
+# Spoke VPCs associate with the shared resolver rules
+resource "aws_route53_resolver_rule_association" "spoke" {
+  resolver_rule_id = module.private_endpoints.resolver_rules["ec2.us-east-1.amazonaws.com"]
+  vpc_id           = "vpc-spoke123"
 }
 ```
 
-### **Advanced Usage - Custom Security and Policies**
+This configuration will:
+- Create a new /21 VPC with 3 private subnets (/24 each)
+- Deploy Interface endpoints for EC2, SSM, and CloudWatch Logs
+- Create Route 53 private hosted zones and resolver rules
+- Share resolver rules with the entire organization via RAM
+- Attach the VPC to your Transit Gateway
 
-This example shows how to implement advanced security controls and custom IAM policies for private endpoints. It demonstrates custom security groups for specific services, IAM policies for fine-grained access control, resolver rules sharing, and IPAM integration for IP address management. This configuration is suitable for organizations with strict security requirements and compliance needs.
+**Cost**: ~$35-40/month ($7/endpoint × 5 services + minimal resolver costs)
+
+### The "Power User" (Advanced)
+
+Advanced configuration with custom security, IPAM integration, Gateway endpoints, and selective sharing:
 
 ```hcl
-module "private_endpoints" {
-  source = "appvia/private-endpoints/aws"
-  version = "0.1.0"
+# Custom security group for KMS endpoint
+resource "aws_security_group" "kms_endpoint" {
+  name        = "kms-endpoint-custom"
+  description = "Custom security group for KMS endpoint"
+  vpc_id      = module.private_endpoints.vpc_id
 
-  name   = "secure-endpoints"
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.50.0.0/16", "10.60.0.0/16"]  # Only specific spoke VPCs
+    description = "HTTPS from approved spoke VPCs"
+  }
+}
+
+module "private_endpoints" {
+  source  = "appvia/private-endpoints/aws"
+  version = "~> 0.1"
+
+  name   = "prod-endpoints"
   region = "us-west-2"
+  
   tags = {
-    Environment     = "production"
-    Purpose         = "secure-connectivity"
-    BusinessUnit    = "security"
+    Environment        = "production"
+    CostCenter         = "infrastructure"
     DataClassification = "confidential"
+    ManagedBy          = "terraform"
   }
 
-  # Advanced endpoint configuration
   endpoints = {
-    "s3" = {
-      service = "s3"
+    # Gateway endpoints for S3 (no ENI charges)
+    s3 = {
+      service      = "s3"
       service_type = "Gateway"
       policy = jsonencode({
         Version = "2012-10-17"
-        Statement = [
-          {
-            Effect = "Allow"
-            Principal = "*"
-            Action = "s3:GetObject"
-            Resource = "arn:aws:s3:::secure-bucket/*"
-          }
-        ]
-      })
-    },
-    "kms" = {
-      service = "kms"
-      service_type = "Interface"
-      security_group_ids = ["sg-custom-kms-12345"]
-    },
-    "secretsmanager" = {
-      service = "secretsmanager"
-      service_type = "Interface"
-      security_group_ids = ["sg-custom-secrets-67890"]
-    }
-  }
-
-  # Share with specific principals
-  sharing = {
-    principals = [
-      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-production",
-      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-staging"
-    ]
-  }
-
-  # Configure resolver rules sharing
-  resolver_rules = {
-    principals = [
-      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-production"
-    ]
-    share_prefix = "private-endpoints"
-  }
-
-  # Advanced resolver configuration
-  resolvers = {
-    outbound = {
-      create            = true
-      ip_address_offset = 10
-      protocols         = ["Do53", "DoH"]
-    }
-  }
-
-  # Network configuration with IPAM
-  network = {
-    name = "secure-endpoints"
-    availability_zones = 3
-    private_netmask    = 24
-    transit_gateway_id = "tgw-1234567890abcdef0"
-    vpc_cidr          = "10.20.0.0/21"
-    ipam_pool_id      = "ipam-pool-1234567890abcdef0"
-    vpc_netmask       = 21
-  }
-}
-```
-
-### **Reuse Existing Network**
-
-This example demonstrates how to integrate private endpoints into an existing VPC infrastructure. Instead of creating a new VPC, it reuses an existing VPC and subnets, making it ideal for organizations that already have established network infrastructure but want to add centralized private endpoint services. This approach minimizes changes to existing networking while adding private connectivity capabilities.
-
-```hcl
-module "private_endpoints" {
-  source = "appvia/private-endpoints/aws"
-  version = "0.1.0"
-
-  name   = "endpoints-existing-vpc"
-  region = "us-west-2"
-  tags = {
-    Environment = "production"
-    Purpose     = "private-connectivity"
-  }
-
-  endpoints = {
-    "ec2" = {
-      service = "ec2"
-    },
-    "ssm" = {
-      service = "ssm"
-    },
-    "kms" = {
-      service = "kms"
-    }
-  }
-
-  sharing = {
-    principals = [
-      "arn:aws:organizations::111111111111:organization/o-1234567890"
-    ]
-  }
-
-  resolvers = {
-    outbound = {
-      create            = true
-      ip_address_offset = 10
-    }
-  }
-
-  # Reuse existing network
-  network = {
-    vpc_cidr = "10.10.0.0/16"
-    vpc_id   = "vpc-1234567890abcdef0"
-    private_subnet_cidr_by_id = {
-      "subnet-1234567890abcdef0" = "10.10.1.0/24"
-      "subnet-0987654321fedcba0" = "10.10.2.0/24"
-    }
-    create = false
-  }
-}
-```
-
-### **Use Cases**
-
-#### **1. Enterprise Centralized Connectivity**
-
-This use case demonstrates a comprehensive enterprise setup for large organizations with centralized networking requirements. It creates a full suite of private endpoints for core AWS services and shares them across the entire organization. This configuration is designed for enterprises that need to maintain private connectivity to AWS services while providing centralized management and cost optimization through shared infrastructure.
-
-```hcl
-# For large enterprises with centralized networking
-module "enterprise_endpoints" {
-  source = "appvia/private-endpoints/aws"
-  
-  name   = "enterprise-endpoints"
-  region = "us-west-2"
-  
-  tags = {
-    Environment = "production"
-    Purpose     = "enterprise-connectivity"
-    BusinessUnit = "infrastructure"
-  }
-
-  endpoints = {
-    "s3" = { service = "s3" }
-    "ec2" = { service = "ec2" }
-    "ssm" = { service = "ssm" }
-    "kms" = { service = "kms" }
-    "secretsmanager" = { service = "secretsmanager" }
-    "logs" = { service = "logs" }
-  }
-
-  sharing = {
-    principals = [
-      "arn:aws:organizations::111111111111:organization/o-1234567890"
-    ]
-  }
-
-  resolvers = {
-    outbound = {
-      create = true
-      ip_address_offset = 12
-    }
-  }
-
-  network = {
-    name = "enterprise-endpoints"
-    availability_zones = 3
-    private_netmask = 24
-    transit_gateway_id = var.enterprise_transit_gateway_id
-    vpc_cidr = "10.100.0.0/21"
-  }
-}
-```
-
-#### **2. Development Environment**
-
-This use case shows a simplified setup for development and testing environments. It creates a minimal set of private endpoints for essential services and shares them only with development organizational units. This configuration balances private connectivity needs with cost efficiency, making it ideal for development teams that need secure access to AWS services without the complexity of a full enterprise setup.
-
-```hcl
-# For development and testing environments
-module "dev_endpoints" {
-  source = "appvia/private-endpoints/aws"
-  
-  name   = "dev-endpoints"
-  region = "us-west-2"
-  
-  tags = {
-    Environment = "development"
-    Purpose     = "dev-connectivity"
-  }
-
-  endpoints = {
-    "s3" = { service = "s3" }
-    "ec2" = { service = "ec2" }
-    "ssm" = { service = "ssm" }
-  }
-
-  sharing = {
-    principals = [
-      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-development"
-    ]
-  }
-
-  network = {
-    name = "dev-endpoints"
-    availability_zones = 2
-    private_netmask = 24
-    transit_gateway_id = var.dev_transit_gateway_id
-    vpc_cidr = "10.200.0.0/21"
-  }
-}
-```
-
-#### **3. Compliance-Focused Setup**
-
-This use case demonstrates a security-focused configuration designed for organizations with strict compliance requirements. It implements custom IAM policies for KMS access, restricts sharing to compliance-specific organizational units, and uses enhanced tagging for audit trails. This configuration is ideal for organizations in regulated industries that need to maintain strict control over data access and demonstrate compliance with security standards.
-
-```hcl
-# For organizations with strict compliance requirements
-module "compliance_endpoints" {
-  source = "appvia/private-endpoints/aws"
-  
-  name   = "compliance-endpoints"
-  region = "us-west-2"
-  
-  tags = {
-    Environment = "production"
-    Purpose     = "compliance-connectivity"
-    Compliance  = "required"
-    DataClassification = "confidential"
-  }
-
-  endpoints = {
-    "kms" = {
-      service = "kms"
-      policy = jsonencode({
-        Version = "2012-10-17"
-        Statement = [
-          {
-            Effect = "Allow"
-            Principal = "*"
-            Action = "kms:*"
-            Resource = "*"
-            Condition = {
-              StringEquals = {
-                "kms:ViaService" = "kms.us-west-2.amazonaws.com"
-              }
+        Statement = [{
+          Effect    = "Allow"
+          Principal = "*"
+          Action    = "s3:*"
+          Resource  = "*"
+          Condition = {
+            StringEquals = {
+              "aws:PrincipalOrgID" = "o-abc123"
             }
           }
-        ]
+        }]
       })
-    },
-    "secretsmanager" = {
-      service = "secretsmanager"
     }
+    
+    # Interface endpoint with custom security group
+    kms = {
+      service            = "kms"
+      security_group_ids = [aws_security_group.kms_endpoint.id]
+    }
+    
+    # Secrets Manager with IAM policy restrictions
+    secretsmanager = {
+      service = "secretsmanager"
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [{
+          Effect    = "Allow"
+          Principal = "*"
+          Action    = "secretsmanager:GetSecretValue"
+          Resource  = "arn:aws:secretsmanager:us-west-2:*:secret:prod/*"
+        }]
+      })
+    }
+    
+    # Standard endpoints
+    ec2         = { service = "ec2" }
+    ec2messages = { service = "ec2messages" }
+    ssm         = { service = "ssm" }
+    ssmmessages = { service = "ssmmessages" }
   }
 
+  # Share only with production and security OUs
   sharing = {
     principals = [
-      "arn:aws:organizations::111111111111:ou/o-1234567890/ou-compliance"
+      "arn:aws:organizations::123456789012:ou/o-abc123/ou-prod-xyz789",
+      "arn:aws:organizations::123456789012:ou/o-abc123/ou-security-321abc"
     ]
   }
 
-  network = {
-    name = "compliance-endpoints"
-    availability_zones = 3
-    private_netmask = 24
-    transit_gateway_id = var.compliance_transit_gateway_id
-    vpc_cidr = "10.50.0.0/21"
-  }
-}
-```
-
-## Reuse Existing Network
-
-In order to reuse and existing network (vpc), we need to pass the vpc_id and the subnets ids where the outbound resolver will be provisioned (assuming you are not reusing an existing resolver as well).
-
-```hcl
-## Provision the endpoints and resolvers
-module "endpoints" {
-  source = "../.."
-
-  name = "endpoints"
-  tags = var.tags
-  endpoints = {
-    "ec2" = {
-      service = "ec2"
-    },
-    "ec2messages" = {
-      service = "ec2messages"
-    },
-    "ssm" = {
-      service = "ssm"
-    },
-    "ssmmessages" = {
-      service = "ssmmessages"
-    },
-  }
-
-  sharing = {
-    principals = values(var.ram_principals)
+  # Share resolver rules separately to additional OUs
+  resolver_rules = {
+    principals = [
+      "arn:aws:organizations::123456789012:ou/o-abc123/ou-staging-456def"
+    ]
+    share_prefix = "prod-resolver-rules"
   }
 
   resolvers = {
     outbound = {
       create            = true
-      ip_address_offset = 10
+      ip_address_offset = 12
+      protocols         = ["Do53", "DoH"]  # Enable DNS-over-HTTPS
     }
   }
 
+  # Use IPAM for dynamic IP allocation
   network = {
-    ## The vpc_cidr of the network we are reusing
-    vpc_cidr = <VPC_CIDR>
-    ## Reuse the network we created above
-    vpc_id = <VPC_ID>
-    ## Reuse the private subnets we created above i.e subnet-id => cidr
-    private_subnet_cidrs_by_id = module.network.private_subnet_cidrs_by_id
-    ## Do not create a new network
-    create = false
+    ipam_pool_id       = "ipam-pool-0abc123def456"
+    vpc_netmask        = 21
+    availability_zones = 3
+    private_netmask    = 24
+    transit_gateway_id = "tgw-abc123def456"
+    
+    # Enable Transit Gateway route table association
+    enable_default_route_table_association = true
+    enable_default_route_table_propagation = true
   }
+}
+
+# Output resolver IPs for custom DNS forwarders
+output "resolver_ips" {
+  value       = module.private_endpoints.outbound_resolver_ip_addresses
+  description = "Outbound resolver IPs for configuring on-premises DNS forwarders"
 }
 ```
 
-## Monitoring & Troubleshooting
+This advanced example demonstrates:
+- Gateway endpoints for S3 to avoid ENI charges
+- Custom security groups with restrictive CIDR ranges
+- IAM policies on endpoints to limit API operations
+- Separate resolver rule sharing to different OUs
+- IPAM integration for automated CIDR allocation
+- DNS-over-HTTPS protocol support
+- Conditional IAM policies scoped to organization
 
-### **CloudWatch Logs and Metrics**
+### The "Migration" (Edge Case)
 
-The module creates comprehensive monitoring capabilities:
+Importing existing VPC and resolver infrastructure into Terraform management:
 
-```bash
-# View VPC endpoints
-aws ec2 describe-vpc-endpoints --filters "Name=tag:Name,Values=*endpoints*"
+```hcl
+# Import existing VPC created outside Terraform
+# terraform import 'module.private_endpoints.module.vpc[0].aws_vpc.this["shared-endpoints"]' vpc-existing123
 
-# Check Route 53 private hosted zones
-aws route53 list-hosted-zones-by-vpc --vpc-id vpc-1234567890abcdef0
+# Use existing outbound resolver (created manually or by another stack)
+data "aws_route53_resolver_endpoint" "existing" {
+  filter {
+    name   = "name"
+    values = ["existing-outbound-resolver"]
+  }
+}
 
-# Monitor resolver endpoints
-aws route53resolver list-resolver-endpoints
+module "private_endpoints" {
+  source  = "appvia/private-endpoints/aws"
+  version = "~> 0.1"
 
-# Check resolver rules
-aws route53resolver list-resolver-rules
+  name   = "migrated-endpoints"
+  region = "eu-west-1"
+  
+  tags = merge(
+    var.common_tags,
+    {
+      MigratedFrom = "manual-cloudformation"
+      MigrationDate = "2026-02-12"
+    }
+  )
 
-# View RAM resource shares
-aws ram get-resource-shares --resource-owner SELF
+  endpoints = {
+    # Migrate to terraform management while preserving existing endpoints
+    ec2 = { service = "ec2" }
+    ssm = { service = "ssm" }
+    kms = { service = "kms" }
+  }
+
+  sharing = {
+    principals = var.organizational_units
+  }
+
+  # Reference existing outbound resolver instead of creating new
+  resolvers = {
+    outbound = {
+      use_existing = data.aws_route53_resolver_endpoint.existing.name
+    }
+  }
+
+  # Reuse existing VPC and subnets
+  network = {
+    vpc_id    = "vpc-existing123"
+    vpc_cidr  = "10.80.0.0/21"
+    
+    # Map existing private subnets
+    private_subnet_cidr_by_id = {
+      "subnet-abc123" = "10.80.0.0/24"
+      "subnet-def456" = "10.80.1.0/24"
+      "subnet-ghi789" = "10.80.2.0/24"
+    }
+    
+    # Skip VPC creation
+    create = false
+  }
+}
+
+# Import existing endpoints before applying
+# terraform import 'module.private_endpoints.aws_vpc_endpoint.this["ec2"]' vpce-existing-ec2-123
+# terraform import 'module.private_endpoints.aws_vpc_endpoint.this["ssm"]' vpce-existing-ssm-456
 ```
 
-### **Key Monitoring Metrics**
+Migration workflow:
+1. Import existing VPC: `terraform import 'module.private_endpoints.module.vpc[0].aws_vpc.this["name"]' vpc-xxx`
+2. Import existing endpoints: `terraform import 'module.private_endpoints.aws_vpc_endpoint.this["service"]' vpce-xxx`
+3. Set `network.create = false` and provide `vpc_id` and subnet mappings
+4. Reference existing resolver via `resolvers.outbound.use_existing`
+5. Run `terraform plan` to verify no changes to existing resources
+6. Gradually add new endpoints through Terraform
 
-| Service | Metric | Description | Use Case |
-|---------|--------|-------------|----------|
-| VPC Endpoints | `DataProcessed` | Data processed through endpoints | Monitor endpoint usage |
-| VPC Endpoints | `PacketsDropped` | Packets dropped by endpoints | Monitor endpoint health |
-| Route 53 | `DNSQueries` | DNS queries to private hosted zones | Monitor DNS resolution |
-| Route 53 Resolver | `ResolverQueries` | Resolver query volume | Monitor resolver usage |
-| RAM | `ResourceShares` | Number of active resource shares | Monitor sharing activity |
+## Operational Context
 
-### **Common Issues & Solutions**
+### Cost Implications
 
-#### **1. VPC Endpoint Creation Failures**
+**VPC Endpoint Costs** (per region, per month):
+- Interface Endpoints: ~$7.20/endpoint ($0.01/hour) + $0.01/GB data processed
+- Gateway Endpoints: No charge for S3 and DynamoDB gateway endpoints
 
-```
-Error: Failed to create VPC endpoint
-```
+**Route 53 Resolver Costs**:
+- Outbound Endpoint: ~$0.125/hour × 2 ENIs (for HA) = ~$180/year
+- Resolver Queries: $0.40/million queries (typically negligible)
 
-**Solutions**:
+**Example Cost Breakdown**:
+- 5 Interface endpoints (EC2, SSM, KMS, Secrets Manager, Logs): 5 × $7.20 = **$36/month**
+- 1 Gateway endpoint (S3): **$0/month**
+- Outbound resolver (2 AZs × 2 IPs): 4 × ~$0.125/hour × 730 hours = **$365/month**
+- **Total**: ~$401/month shared across your entire organization
 
-- Verify service name is correct and supported
-- Check VPC and subnet configuration
-- Ensure security groups allow HTTPS traffic
-- Verify IAM permissions for endpoint creation
+**Cost Savings**: If you have 50 VPCs, centralized endpoints save ~$18,000/month compared to deploying 5 endpoints in each VPC (50 × 5 × $7.20 = $1,800/month per-VPC approach × 50 VPCs).
 
-#### **2. DNS Resolution Issues**
+**Optimization Tips**:
+- Use Gateway endpoints (S3, DynamoDB) instead of Interface endpoints where possible—they're free
+- Deploy endpoints only for services you actively use—don't default to "all services"
+- Consider single-AZ deployment for non-production shared VPCs to halve resolver costs
+- Use AWS Cost Explorer tags to track endpoint costs: tag with `Purpose=shared-endpoints`
 
-```
-Error: DNS queries not resolving to private endpoints
-```
+### Known Limitations
 
-**Solutions**:
+- **DNS Propagation Delay**: Route 53 resolver rule associations can take 2-3 minutes to become active in spoke VPCs. Plan for this delay in automation pipelines
 
-- Check Route 53 private hosted zone configuration
-- Verify resolver rules are properly configured
-- Ensure outbound resolver is accessible
-- Check VPC DNS settings
+- **Transit Gateway Dependency**: This module does not configure Transit Gateway routing. You must ensure:
+  - Spoke VPCs have routes to the shared VPC CIDR via TGW
+  - Shared VPC has routes back to spoke VPCs (if using Interface endpoints)
+  - TGW route tables have appropriate associations and propagations
 
-#### **3. Cross-VPC Connectivity Issues**
+- **Service Endpoint Regional Limits**: Interface endpoints consume ENIs in your VPC. Default limit is 350 ENIs per VPC. Each endpoint uses 1 ENI per AZ (e.g., 3 AZs = 3 ENIs per endpoint)
 
-```
-Error: Cannot reach private endpoints from spoke VPCs
-```
+- **Private Hosted Zone Limits**: AWS limits you to 500 private hosted zones per account. Each endpoint creates one private hosted zone
 
-**Solutions**:
+- **DNS Resolution Scope**: Outbound resolvers only work for spoke VPCs using AWS-provided DNS (VPC+2). On-premises networks or VPCs with custom DNS servers need additional configuration
 
-- Verify Transit Gateway configuration
-- Check route table associations
-- Ensure security groups allow traffic
-- Verify RAM resource sharing configuration
+- **Gateway Endpoint Route Table Conflicts**: If you specify `route_table_ids` for Gateway endpoints (S3, DynamoDB), ensure those route tables don't have conflicting routes to the same CIDR ranges
 
-#### **4. RAM Sharing Issues**
+- **RAM Sharing Limitations**: Resolver rules can be shared, but VPC endpoints themselves cannot be directly shared via RAM. Spokes access endpoints via DNS resolution, not direct sharing
 
-```
-Error: Resource sharing failed
-```
+### Breaking Changes
 
-**Solutions**:
+**v0.2.0 (Planned)**:
+- `network.private_subnet_cidr_by_id` will be renamed to `network.private_subnet_cidrs_by_id` (plural) for consistency
+- Minimum AWS provider version will increase to 5.0.0
+- `sharing` variable will become optional with default `{principals = []}`
 
-- Verify principal ARNs are correct
-- Check RAM permissions
-- Ensure principals are valid AWS accounts or OUs
-- Verify resource share configuration
-
-### **Operational Best Practices**
-
-1. **Network Planning**: Plan VPC CIDR ranges to avoid conflicts
-2. **Security Groups**: Use least privilege principles for security group rules
-3. **Monitoring**: Implement comprehensive monitoring and alerting
-4. **Documentation**: Maintain clear documentation of endpoint configurations
-5. **Testing**: Regularly test endpoint connectivity and DNS resolution
-
-## Requirements
-
-### **Prerequisites**
-
-- AWS VPC with private subnets
-- Transit Gateway for cross-VPC connectivity
-- Appropriate IAM permissions for VPC endpoints and Route 53
-- AWS RAM for resource sharing (if using sharing features)
-
-### **AWS Services Used**
-
-- AWS VPC Endpoints (PrivateLink)
-- Amazon Route 53 (Private Hosted Zones)
-- AWS Route 53 Resolver
-- AWS Resource Access Manager (RAM)
-- AWS Transit Gateway
-- AWS VPC
-
-### **Permissions Required**
-
-- VPC endpoint management
-- Route 53 private hosted zone management
-- Route 53 resolver management
-- RAM resource sharing (if using sharing features)
-- Transit Gateway attachment permissions
+**v0.1.0 (Current)**:
+- Initial release
+- Requires AWS provider >= 5.0.0
+- Creates private hosted zones with lifecycle `ignore_changes` on VPC associations
 
 ## Update Documentation
 
-The `terraform-docs` utility is used to generate this README. Follow the below steps to update:
+The `terraform-docs` utility is used to generate the tables below. Follow these steps to update:
 
 1. Make changes to the `.terraform-docs.yml` file
-2. Fetch the `terraform-docs` binary (<https://terraform-docs.io/user-guide/installation/>)
+2. Fetch the `terraform-docs` binary (https://terraform-docs.io/user-guide/installation/)
 3. Run `terraform-docs markdown table --output-file ${PWD}/README.md --output-mode inject .`
 
 <!-- BEGIN_TF_DOCS -->
