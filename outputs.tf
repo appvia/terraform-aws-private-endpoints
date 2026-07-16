@@ -14,6 +14,11 @@ output "hosted_zone_map" {
   value       = local.private_hosted_zone_map
 }
 
+output "hosted_zone_arns" {
+  description = "A map of the private hosted zones created and their arns"
+  value       = local.private_hosted_zone_arns
+}
+
 output "outbound_resolver_endpoint_id" {
   description = "The id of the outbound resolver if we created one"
   value       = local.enable_outbound_resolver ? local.outbound_resolver_id : null
