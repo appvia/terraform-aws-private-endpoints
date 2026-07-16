@@ -7,5 +7,5 @@ locals {
   ## A map of the service name to hosted zone id
   private_hosted_zone_map = { for k, v in local.endpoints : v.hosted_zone => aws_route53_zone.this[k].zone_id }
   ## A map of the service name to hosted zone arn
-  private_hosted_zone_arns = { for k, v in local.endpoints : v.hosted_zone => v.hosted_zone.arn }
+  private_hosted_zone_arns = { for k, v in local.endpoints : v.hosted_zone => aws_route53_zone.this[k].arn }
 }
