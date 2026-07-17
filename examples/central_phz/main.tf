@@ -11,7 +11,7 @@ locals {
     "Owner"       = "Engineering"
   }
 
-  transit_gateway_id = "tgw-0c5994aa363b1e132"
+  #transit_gateway_id = "tgw-0c5994aa363b1e132"
 }
 
 ## Provision the endpoints and resolvers
@@ -55,7 +55,7 @@ module "endpoints" {
     # Number of availability zones to create subnets in
     private_netmask = 24
     # The transit gateway to connect
-    transit_gateway_id = local.transit_gateway_id
+    #transit_gateway_id = local.transit_gateway_id
     # The cider range to use for the VPC
     vpc_cidr = "10.20.0.0/21"
   }
