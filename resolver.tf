@@ -22,7 +22,7 @@ locals {
 module "dns_security_group" {
   count   = local.enable_outbound_resolver ? 1 : 0
   source  = "terraform-aws-modules/security-group/aws"
-  version = "5.3.1"
+  version = "6.0.0"
 
   name                = "dns-resolvers-${var.name}"
   description         = "Allow DNS traffic to the route53 resolvers"
